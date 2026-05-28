@@ -29,4 +29,18 @@ export async function initializeDatabase() {
   const schema = await fs.readFile(schemaPath, 'utf8');
 
   await database.exec(schema);
+  await ensureFornecedorColumns(database);
+}
+
+async function ensureFornecedorColumns(database) {
+  const columns = await database.all('PRAGMA table_info(FORNECEDORES)');
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has('telefone')) {
+    await database.exec('ALTER TABLE FORNECEDORES ADD COLUMN telefone TEXT');
+  }
+
+  if (!columnNames.has('email')) {
+    await database.exec('ALTER TABLE FORNECEDORES ADD COLUMN email TEXT');
+  }
 }
