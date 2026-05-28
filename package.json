@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "test:db": "node tests/db/test-db-connection.js"
+    "test:db": "node tests/db/test-db-connection.js",
+    "test:fornecedores": "node tests/fornecedores/run-tests.js"
   },
   "dependencies": {
     "express": "^4.18.3",
