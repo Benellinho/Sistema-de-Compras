@@ -185,6 +185,12 @@ PUT /grupos/:id
 PATCH /grupos/:id/status
 ```
 
+### Remover grupo
+
+```http
+DELETE /grupos/:id
+```
+
 ---
 
 ## Endpoints de Itens
@@ -219,6 +225,12 @@ PUT /itens/:id
 PATCH /itens/:id/status
 ```
 
+### Remover item
+
+```http
+DELETE /itens/:id
+```
+
 ---
 
 ## Regras de Negócio
@@ -229,6 +241,7 @@ PATCH /itens/:id/status
 - Não permitir grupo duplicado.
 - Grupo inativo não deve receber novos itens.
 - Não excluir grupos que possuam itens vinculados.
+- Permitir exclusão apenas de grupos sem itens vinculados.
 
 ### Item
 
@@ -239,6 +252,7 @@ PATCH /itens/:id/status
 - Não permitir item vinculado a grupo inexistente.
 - Não permitir item em grupo inativo.
 - Permitir ativação e inativação sem exclusão física.
+- Permitir exclusão de item quando necessário.
 
 ---
 
@@ -269,6 +283,8 @@ PATCH /itens/:id/status
 - Buscar grupo.
 - Validar nome duplicado.
 - Ativar/Inativar grupo.
+- Remover grupo.
+- Bloquear remoção de grupo com itens vinculados.
 
 ### Item
 
@@ -280,6 +296,7 @@ PATCH /itens/:id/status
 - Validar grupo inexistente.
 - Validar grupo inativo.
 - Ativar/Inativar item.
+- Remover item.
 
 ---
 
