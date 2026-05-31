@@ -406,6 +406,20 @@ Criar fluxo mínimo funcional para abertura, detalhamento e acompanhamento bási
 
 ---
 
+## Decisões de Schema
+
+- Usar as tabelas `solicitacoes_compra` e `solicitacao_compra_itens`.
+- Usar `solicitante_id` com referência a `usuarios`.
+- Não manter `data_solicitacao`; usar `created_at` e `updated_at`.
+- Restringir status do MVP a `ABERTA`, `CANCELADA` e `FINALIZADA`.
+- Exigir `item_id` cadastrado no item da solicitação.
+- Salvar `unidade_snapshot` no momento da inclusão do item.
+- Validar `quantidade > 0` no banco e no service.
+- Usar `ON DELETE CASCADE` de solicitação para itens da solicitação.
+- Usar migrações leves quando necessário para adaptar bancos SQLite existentes.
+
+---
+
 ## Status do MVP
 
 ```txt
