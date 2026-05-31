@@ -30,6 +30,8 @@ export async function initializeDatabase() {
 
   await database.exec(schema);
   await ensureFornecedorColumns(database);
+  await ensureGruposItensColumns(database);
+  await ensureItensColumns(database);
 }
 
 async function ensureFornecedorColumns(database) {
@@ -43,4 +45,58 @@ async function ensureFornecedorColumns(database) {
   if (!columnNames.has('email')) {
     await database.exec('ALTER TABLE FORNECEDORES ADD COLUMN email TEXT');
   }
+}
+
+async function ensureGruposItensColumns(database) {
+  const columns = await database.all('PRAGMA table_info(GRUPOS_ITENS)');
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has('created_at')) {
+    await database.exec('ALTER TABLE GRUPOS_ITENS ADD COLUMN created_at TEXT');
+  }
+
+  if (!columnNames.has('updated_at')) {
+    await database.exec('ALTER TABLE GRUPOS_ITENS ADD COLUMN updated_at TEXT');
+  }
+
+  await database.exec(`
+    UPDATE GRUPOS_ITENS
+    SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP),
+        updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)
+  `);
+}
+
+async function ensureItensColumns(database) {
+  const columns = await database.all('PRAGMA table_info(ITENS_COMPRA)');
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has('classificacao')) {
+    await database.exec("ALTER TABLE ITENS_COMPRA ADD COLUMN classificacao TEXT NOT NULL DEFAULT 'CUSTO'");
+  }
+
+  if (!columnNames.has('grupo_id')) {
+    await database.exec('ALTER TABLE ITENS_COMPRA ADD COLUMN grupo_id INTEGER');
+  }
+
+  if (!columnNames.has('controla_estoque')) {
+    await database.exec('ALTER TABLE ITENS_COMPRA ADD COLUMN controla_estoque INTEGER NOT NULL DEFAULT 0');
+  }
+
+  if (!columnNames.has('ativo')) {
+    await database.exec('ALTER TABLE ITENS_COMPRA ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1');
+  }
+
+  if (!columnNames.has('created_at')) {
+    await database.exec('ALTER TABLE ITENS_COMPRA ADD COLUMN created_at TEXT');
+  }
+
+  if (!columnNames.has('updated_at')) {
+    await database.exec('ALTER TABLE ITENS_COMPRA ADD COLUMN updated_at TEXT');
+  }
+
+  await database.exec(`
+    UPDATE ITENS_COMPRA
+    SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP),
+        updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)
+  `);
 }

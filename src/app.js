@@ -1,5 +1,6 @@
 import express from 'express';
 import fornecedoresRoutes from './modules/fornecedores/fornecedores/fornecedores.routes.js';
+import gruposRoutes from './modules/itens/grupos/grupos.routes.js';
 import itensRoutes from './modules/itens/itens.routes.js';
 import solicitacoesRoutes from './modules/solicitacoes/solicitacoes.routes.js';
 
@@ -12,6 +13,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/fornecedores', fornecedoresRoutes);
+app.use('/grupos', gruposRoutes);
 app.use('/itens', itensRoutes);
 app.use('/solicitacoes', solicitacoesRoutes);
 
