@@ -378,45 +378,223 @@ Ao final desta etapa o sistema deverá possuir:
 
 ## Objetivo
 
-Criar fluxo mínimo funcional do sistema.
+Criar fluxo mínimo funcional para abertura, detalhamento e acompanhamento básico de solicitações de compra.
+
+---
 
 ## Tabelas
 
 ### solicitacoes_compra
 
-* id
-* solicitante_id
-* status
-* observacoes
+- id
+- solicitante_id
+- status
+- observacoes
+- created_at
+- updated_at
 
 ### solicitacao_compra_itens
 
-* id
-* solicitacao_id
-* item_id
-* descricao_necessidade
-* quantidade
+- id
+- solicitacao_id
+- item_id
+- descricao_necessidade
+- quantidade
+- unidade_snapshot
+- observacoes
+- created_at
+
+---
+
+## Status do MVP
+
+```txt
+ABERTA
+CANCELADA
+FINALIZADA
+```
+
+Os demais status de aprovação, cotação, compra e ordem de compra ficam reservados para fases posteriores.
+
+---
 
 ## Endpoints
 
+### Listar solicitações
+
 ```http
 GET /solicitacoes
+```
+
+### Visualizar detalhes da solicitação
+
+```http
 GET /solicitacoes/:id
+```
+
+Deve retornar o cabeçalho da solicitação com os itens vinculados.
+
+### Criar solicitação
+
+```http
 POST /solicitacoes
+```
+
+Payload mínimo:
+
+```json
+{
+  "solicitante_id": 1,
+  "observacoes": "Compra para reposição"
+}
+```
+
+### Alterar status
+
+```http
 PUT /solicitacoes/:id/status
 ```
 
+Payload mínimo:
+
+```json
+{
+  "status": "FINALIZADA"
+}
+```
+
+### Adicionar item na solicitação
+
+```http
+POST /solicitacoes/:id/itens
+```
+
+Payload mínimo:
+
+```json
+{
+  "item_id": 1,
+  "descricao_necessidade": "Reposição de estoque",
+  "quantidade": 10,
+  "observacoes": "Uso no setor operacional"
+}
+```
+
+### Remover item da solicitação
+
+```http
+DELETE /solicitacoes/:id/itens/:itemSolicitacaoId
+```
+
+---
+
+## Regras de Negócio
+
+### Solicitação
+
+- Solicitante deve existir em `usuarios`.
+- Solicitação deve iniciar com status `ABERTA`.
+- Apenas status do MVP devem ser aceitos nesta fase.
+- Solicitações `CANCELADA` ou `FINALIZADA` não devem receber novos itens.
+- Solicitações `CANCELADA` ou `FINALIZADA` não devem permitir remoção de itens.
+- Visualização de detalhes deve incluir os itens da solicitação.
+
+### Itens da Solicitação
+
+- Solicitação deve existir.
+- Item de compra deve existir em `itens_compra`.
+- Quantidade deve ser maior que zero.
+- `descricao_necessidade` deve ser obrigatória.
+- `unidade_snapshot` deve copiar a unidade atual do item no momento da inclusão.
+- Remoção de item deve ser física no MVP.
+
+---
+
+## Validações
+
+### Solicitação
+
+- `solicitante_id` informado.
+- `solicitante_id` válido.
+- `status` válido ao alterar status.
+- Não alterar status de solicitação inexistente.
+
+### Item da Solicitação
+
+- `item_id` informado.
+- `item_id` válido.
+- `quantidade` informada.
+- `quantidade` maior que zero.
+- `descricao_necessidade` informada.
+- Não adicionar item em solicitação inexistente.
+- Não adicionar item em solicitação encerrada.
+- Não remover item de solicitação encerrada.
+
+---
+
+## Testes
+
+### Solicitação
+
+- Criar solicitação.
+- Listar solicitações.
+- Buscar detalhes da solicitação.
+- Alterar status.
+- Validar solicitante inexistente.
+- Validar status inválido.
+
+### Itens da Solicitação
+
+- Adicionar item.
+- Remover item.
+- Validar item inexistente.
+- Validar quantidade inválida.
+- Validar descrição obrigatória.
+- Bloquear adição de item em solicitação encerrada.
+- Bloquear remoção de item em solicitação encerrada.
+
+---
+
 ## Funções
 
-* Criar solicitação
-* Adicionar itens
-* Alterar status
-* Listar solicitações
-* Visualizar detalhes
+- Criar solicitação.
+- Adicionar itens.
+- Remover itens.
+- Alterar status.
+- Listar solicitações.
+- Visualizar detalhes com itens.
+
+## Estrutura Recomendada
+
+```txt
+src/modules/solicitacoes/
+  solicitacoes.controller.js
+  solicitacoes.service.js
+  solicitacoes.repository.js
+  solicitacoes.routes.js
+  itens/
+    itens-solicitacao.controller.js
+    itens-solicitacao.service.js
+    itens-solicitacao.repository.js
+    itens-solicitacao.routes.js
+```
+
+---
+
+## Pendências Deliberadas Para Fases Futuras
+
+- Aprovação de solicitações.
+- Histórico de mudanças.
+- Anexos.
+- Cotação.
+- Compra.
+- Ordem de compra.
+
+---
 
 ## Resultado Esperado
 
-Primeira versão utilizável do sistema.
+Primeira versão utilizável do fluxo de solicitação de compra, permitindo abrir uma solicitação, incluir itens, consultar detalhes e controlar status básico.
 
 ---
 
