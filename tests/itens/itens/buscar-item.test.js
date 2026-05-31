@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import itensService from '../../../src/modules/itens/itens.service.js';
 import { cleanupGrupoByNome, cleanupItemByCodigo, createItemFixture, setupDatabase } from '../helpers/test-utils.js';
 
-export default async function testListarItens() {
+export default async function testBuscarItem() {
   await setupDatabase();
 
   const item = await createItemFixture();
 
-  const itens = await itensService.list();
+  const encontrado = await itensService.findOne(item.id);
 
-  assert.ok(Array.isArray(itens));
-  assert.ok(itens.some((registro) => registro.id === item.id), 'Item criado nao foi encontrado na listagem.');
+  assert.equal(encontrado.id, item.id);
+  assert.equal(encontrado.codigo, item.codigo);
 
   await cleanupItemByCodigo(item.codigo);
   await cleanupGrupoByNome(item.grupoFixture.nome);

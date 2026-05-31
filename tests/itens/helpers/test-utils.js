@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { initializeDatabase, getDatabase } from '../../../src/db/connection.js';
 import itensService from '../../../src/modules/itens/itens.service.js';
+import gruposService from '../../../src/modules/itens/grupos/grupos.service.js';
 
 let sequence = 0;
 
@@ -23,12 +24,47 @@ export function createItemPayload(overrides = {}) {
     codigo: `ITEM-${unique}`,
     descricao: `Item Teste ${unique}`,
     unidade: 'UN',
+    classificacao: 'CUSTO',
+    controla_estoque: 0,
+    ativo: 1,
+    ...overrides
+  };
+}
+
+export function createGrupoPayload(overrides = {}) {
+  sequence += 1;
+  const unique = `${Date.now()}${sequence}`.slice(-10).padStart(10, '0');
+
+  return {
+    nome: `Grupo Teste ${unique}`,
+    ativo: 1,
     ...overrides
   };
 }
 
 export async function createItemFixture(overrides = {}) {
-  return itensService.create(createItemPayload(overrides));
+  let grupo;
+  let payload = createItemPayload(overrides);
+
+  if (payload.grupo_id === undefined) {
+    grupo = await createGrupoFixture();
+    payload = {
+      ...payload,
+      grupo_id: grupo.id
+    };
+  }
+
+  const item = await itensService.create(payload);
+
+  if (grupo) {
+    item.grupoFixture = grupo;
+  }
+
+  return item;
+}
+
+export async function createGrupoFixture(overrides = {}) {
+  return gruposService.create(createGrupoPayload(overrides));
 }
 
 export async function cleanupItemByCodigo(codigo) {
@@ -43,4 +79,19 @@ export async function cleanupItemByCodigo(codigo) {
   );
 
   await database.run('DELETE FROM ITENS_COMPRA WHERE codigo = ?', codigo);
+}
+
+export async function cleanupGrupoByNome(nome) {
+  const database = await setupDatabase();
+
+  await database.run(
+    `UPDATE ITENS_COMPRA
+     SET grupo_id = NULL
+     WHERE grupo_id IN (
+       SELECT id FROM GRUPOS_ITENS WHERE nome = ?
+     )`,
+    nome
+  );
+
+  await database.run('DELETE FROM GRUPOS_ITENS WHERE nome = ?', nome);
 }

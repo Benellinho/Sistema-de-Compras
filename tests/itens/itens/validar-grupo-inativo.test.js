@@ -8,21 +8,17 @@ import {
   setupDatabase
 } from '../helpers/test-utils.js';
 
-export default async function testValidarCodigoDuplicado() {
+export default async function testValidarGrupoInativo() {
   await setupDatabase();
 
-  const grupo = await createGrupoFixture();
-  const payload = createItemPayload();
-  payload.grupo_id = grupo.id;
+  const grupo = await createGrupoFixture({ ativo: 0 });
+  const payload = createItemPayload({ grupo_id: grupo.id });
   await cleanupItemByCodigo(payload.codigo);
-
-  await itensService.create(payload);
 
   await assert.rejects(
     () => itensService.create(payload),
-    (error) => error.statusCode === 409 && error.message.includes('codigo')
+    (error) => error.statusCode === 400 && error.message.includes('Grupo inativo')
   );
 
-  await cleanupItemByCodigo(payload.codigo);
   await cleanupGrupoByNome(grupo.nome);
 }
