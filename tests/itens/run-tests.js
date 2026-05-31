@@ -1,15 +1,18 @@
 import { getDatabase } from '../../src/db/connection.js';
 import testAtualizarGrupo from './grupos/atualizar-grupo.test.js';
 import testAtualizarStatusGrupo from './grupos/atualizar-status-grupo.test.js';
+import testBloquearRemocaoGrupoComItens from './grupos/bloquear-remocao-grupo-com-itens.test.js';
 import testBuscarGrupo from './grupos/buscar-grupo.test.js';
 import testCriarGrupo from './grupos/criar-grupo.test.js';
 import testListarGrupos from './grupos/listar-grupos.test.js';
+import testRemoverGrupo from './grupos/remover-grupo.test.js';
 import testValidarGrupoDuplicado from './grupos/validar-grupo-duplicado.test.js';
 import testAtualizarItem from './itens/atualizar-item.test.js';
 import testAtualizarStatusItem from './itens/atualizar-status-item.test.js';
 import testBuscarItem from './itens/buscar-item.test.js';
 import testCriarItem from './itens/criar-item.test.js';
 import testListarItens from './itens/listar-itens.test.js';
+import testRemoverItem from './itens/remover-item.test.js';
 import testValidarCodigoDuplicado from './itens/validar-codigo-duplicado.test.js';
 import testValidarGrupoInativo from './itens/validar-grupo-inativo.test.js';
 import testValidarGrupoInexistente from './itens/validar-grupo-inexistente.test.js';
@@ -24,7 +27,9 @@ const tests = [
       ['buscar grupo', testBuscarGrupo],
       ['atualizar grupo', testAtualizarGrupo],
       ['validar grupo duplicado', testValidarGrupoDuplicado],
-      ['atualizar status grupo', testAtualizarStatusGrupo]
+      ['atualizar status grupo', testAtualizarStatusGrupo],
+      ['remover grupo', testRemoverGrupo],
+      ['bloquear remocao de grupo com itens', testBloquearRemocaoGrupoComItens]
     ]
   },
   {
@@ -37,7 +42,8 @@ const tests = [
       ['validar codigo duplicado', testValidarCodigoDuplicado],
       ['validar grupo inexistente', testValidarGrupoInexistente],
       ['validar grupo inativo', testValidarGrupoInativo],
-      ['atualizar status item', testAtualizarStatusItem]
+      ['atualizar status item', testAtualizarStatusItem],
+      ['remover item', testRemoverItem]
     ]
   }
 ];
