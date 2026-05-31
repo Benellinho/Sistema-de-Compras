@@ -309,7 +309,71 @@ Ao final desta fase o sistema deverá possuir:
 - Relacionamento entre grupos e itens.
 - Validações básicas.
 - CRUD completo para ambas as entidades.
-- 
+
+---
+
+# FASE 3.5 — Cadastro Básico de Usuários
+
+## Objetivo
+
+Criar uma base mínima de usuários para permitir vínculo com solicitações de compra.
+
+---
+
+## Tabela
+
+### usuarios
+
+- id
+- nome
+- email
+- cargo
+- ativo
+- created_at
+- updated_at
+
+---
+
+## Endpoints
+
+```http
+GET /usuarios
+GET /usuarios/:id
+POST /usuarios
+PUT /usuarios/:id
+DELETE /usuarios/:id
+```
+
+---
+
+## Regras de Negócio
+
+- Nome deve ser obrigatório.
+- Email deve ser obrigatório.
+- Email deve ser único.
+- Usuário pode ser ativado/inativado pelo campo ativo.
+- Não haverá autenticação ou senha nesta etapa.
+
+---
+
+## Testes
+
+- Criar usuário.
+- Atualizar usuário.
+- Listar usuários.
+- Buscar usuário.
+- Validar email duplicado.
+- Remover usuário.
+
+---
+
+## Resultado Esperado
+
+Ao final desta etapa o sistema deverá possuir:
+
+- CRUD mínimo de usuários.
+- Base para uso de `solicitante_id` nas solicitações de compra.
+
 # FASE 4 — Solicitações de Compra (MVP)
 
 ## Objetivo
