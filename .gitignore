@@ -4,3 +4,4 @@ pdf/
 logs/
 .env
 convenções.md
+src/db/database.sqlite
