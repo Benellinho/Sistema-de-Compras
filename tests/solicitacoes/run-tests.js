@@ -1,10 +1,17 @@
 import { getDatabase } from '../../src/db/connection.js';
 import testAdicionarItemSolicitacao from './itens/adicionar-item-solicitacao.test.js';
+import testBloquearAdicaoItemSolicitacaoEncerrada from './itens/bloquear-adicao-item-solicitacao-encerrada.test.js';
+import testBloquearRemocaoItemSolicitacaoEncerrada from './itens/bloquear-remocao-item-solicitacao-encerrada.test.js';
 import testRemoverItemSolicitacao from './itens/remover-item-solicitacao.test.js';
+import testValidarDescricaoObrigatoria from './itens/validar-descricao-obrigatoria.test.js';
+import testValidarItemInexistente from './itens/validar-item-inexistente.test.js';
+import testValidarQuantidadeInvalida from './itens/validar-quantidade-invalida.test.js';
 import testAtualizarStatusSolicitacao from './solicitacoes/atualizar-status-solicitacao.test.js';
 import testBuscarSolicitacao from './solicitacoes/buscar-solicitacao.test.js';
 import testCriarSolicitacao from './solicitacoes/criar-solicitacao.test.js';
 import testListarSolicitacoes from './solicitacoes/listar-solicitacoes.test.js';
+import testValidarSolicitanteInexistente from './solicitacoes/validar-solicitante-inexistente.test.js';
+import testValidarStatusInvalido from './solicitacoes/validar-status-invalido.test.js';
 import { printError, printGroup, printSuccess, printSummary } from '../helpers/testLogger.js';
 
 const tests = [
@@ -14,14 +21,21 @@ const tests = [
       ['criar solicitacao', testCriarSolicitacao],
       ['listar solicitacoes', testListarSolicitacoes],
       ['buscar solicitacao', testBuscarSolicitacao],
-      ['atualizar status solicitacao', testAtualizarStatusSolicitacao]
+      ['atualizar status solicitacao', testAtualizarStatusSolicitacao],
+      ['validar solicitante inexistente', testValidarSolicitanteInexistente],
+      ['validar status invalido', testValidarStatusInvalido]
     ]
   },
   {
     group: 'ITENS DA SOLICITACAO',
     items: [
       ['adicionar item solicitacao', testAdicionarItemSolicitacao],
-      ['remover item solicitacao', testRemoverItemSolicitacao]
+      ['remover item solicitacao', testRemoverItemSolicitacao],
+      ['validar item inexistente', testValidarItemInexistente],
+      ['validar quantidade invalida', testValidarQuantidadeInvalida],
+      ['validar descricao obrigatoria', testValidarDescricaoObrigatoria],
+      ['bloquear adicao item solicitacao encerrada', testBloquearAdicaoItemSolicitacaoEncerrada],
+      ['bloquear remocao item solicitacao encerrada', testBloquearRemocaoItemSolicitacaoEncerrada]
     ]
   }
 ];
