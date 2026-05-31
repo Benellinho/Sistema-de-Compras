@@ -10,7 +10,8 @@
     "test:db": "node tests/db/test-db-connection.js",
     "test:fornecedores": "node tests/fornecedores/run-tests.js",
     "test:itens": "node tests/itens/run-tests.js",
-    "test:usuarios": "node tests/usuarios/run-tests.js"
+    "test:usuarios": "node tests/usuarios/run-tests.js",
+    "test:solicitacoes": "node tests/solicitacoes/run-tests.js"
   },
   "dependencies": {
     "express": "^4.18.3",
