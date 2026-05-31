@@ -71,7 +71,7 @@ export async function cleanupItemByCodigo(codigo) {
   const database = await setupDatabase();
 
   await database.run(
-    `DELETE FROM SOLICITACAO_ITENS
+    `DELETE FROM solicitacao_compra_itens
      WHERE item_id IN (
        SELECT id FROM ITENS_COMPRA WHERE codigo = ?
      )`,
