@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import fornecedoresService from '../../src/modules/fornecedores/fornecedores.service.js';
-import { cleanupFornecedorByCnpj, createFornecedorFixture, setupDatabase } from './helpers/test-utils.js';
+import fornecedoresService from '../../../src/modules/fornecedores/fornecedores/fornecedores.service.js';
+import { cleanupFornecedorByCnpj, createFornecedorFixture, setupDatabase } from '../helpers/test-utils.js';
 
 export default async function testListarFornecedores() {
   await setupDatabase();

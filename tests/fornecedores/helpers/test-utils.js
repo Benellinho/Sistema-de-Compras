@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { initializeDatabase, getDatabase } from '../../../src/db/connection.js';
-import fornecedoresService from '../../../src/modules/fornecedores/fornecedores.service.js';
+import fornecedoresService from '../../../src/modules/fornecedores/fornecedores/fornecedores.service.js';
 
 let sequence = 0;
 

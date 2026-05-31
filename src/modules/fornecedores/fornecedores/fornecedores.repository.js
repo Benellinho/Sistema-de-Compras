@@ -1,4 +1,4 @@
-import { getDatabase } from '../../db/connection.js';
+import { getDatabase } from '../../../db/connection.js';
 
 const fornecedorFields = 'id, cnpj, status, razao_social, nome_fantasia, telefone, email';
 

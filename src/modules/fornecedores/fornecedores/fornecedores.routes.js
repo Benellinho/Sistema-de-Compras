@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import contatosRoutes from './contatos/contatos.routes.js';
+import contatosRoutes from '../contatos/contatos.routes.js';
 import {
   createFornecedor,
   listFornecedores,

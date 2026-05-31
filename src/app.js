@@ -1,5 +1,5 @@
 import express from 'express';
-import fornecedoresRoutes from './modules/fornecedores/fornecedores.routes.js';
+import fornecedoresRoutes from './modules/fornecedores/fornecedores/fornecedores.routes.js';
 import itensRoutes from './modules/itens/itens.routes.js';
 import solicitacoesRoutes from './modules/solicitacoes/solicitacoes.routes.js';
 

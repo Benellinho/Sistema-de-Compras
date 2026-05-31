@@ -1,4 +1,4 @@
-import fornecedoresRepository from '../fornecedores.repository.js';
+import fornecedoresRepository from '../fornecedores/fornecedores.repository.js';
 import contatosRepository from './contatos.repository.js';
 
 function createValidationError(message) {

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import fornecedoresService from '../../src/modules/fornecedores/fornecedores.service.js';
+import fornecedoresService from '../../../src/modules/fornecedores/fornecedores/fornecedores.service.js';
 import {
   cleanupFornecedorByCnpj,
   createFornecedorPayload,
   setupDatabase
-} from './helpers/test-utils.js';
+} from '../helpers/test-utils.js';
 
 export default async function testValidarCnpjDuplicado() {
   await setupDatabase();

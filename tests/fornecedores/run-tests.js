@@ -1,8 +1,8 @@
 import { getDatabase } from '../../src/db/connection.js';
-import testAtualizarFornecedor from './atualizar-fornecedor.test.js';
-import testCriarFornecedor from './criar-fornecedor.test.js';
-import testListarFornecedores from './listar-fornecedores.test.js';
-import testValidarCnpjDuplicado from './validar-cnpj-duplicado.test.js';
+import testAtualizarFornecedor from './fornecedores/atualizar-fornecedor.test.js';
+import testCriarFornecedor from './fornecedores/criar-fornecedor.test.js';
+import testListarFornecedores from './fornecedores/listar-fornecedores.test.js';
+import testValidarCnpjDuplicado from './fornecedores/validar-cnpj-duplicado.test.js';
 import testAtualizarContato from './contatos/atualizar-contato.test.js';
 import testBuscarContato from './contatos/buscar-contato.test.js';
 import testCriarContato from './contatos/criar-contato.test.js';
