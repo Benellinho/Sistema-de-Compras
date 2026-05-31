@@ -106,46 +106,193 @@ POST /fornecedores/:id/contatos
 
 ---
 
-# FASE 3 — Cadastro de Itens
+# FASE 3 — Cadastro de Grupos e Itens
 
 ## Objetivo
 
-Cadastrar produtos e serviços disponíveis para compra.
+Cadastrar e organizar produtos e serviços através de grupos de classificação.
+
+---
 
 ## Tabelas
 
 ### grupos_itens
 
-* id
-* nome
-* ativo
+- id
+- nome
+- ativo
+- created_at
+- updated_at
 
 ### itens_compra
 
-* id
-* codigo
-* descricao
-* unidade
-* classificacao
-* grupo_id
-
-## Endpoints
-
-```http
-GET /itens
-GET /itens/:id
-POST /itens
-PUT /itens/:id
-```
-
-## Funções
-
-* Cadastro de itens
-* Cadastro de grupos
-* Controle de item ativo/inativo
+- id
+- codigo
+- descricao
+- unidade
+- classificacao
+- grupo_id
+- controla_estoque
+- ativo
+- created_at
+- updated_at
 
 ---
 
+## Relacionamentos
+
+```txt
+GRUPOS_ITENS (1)
+       │
+       │
+       ▼
+ITENS_COMPRA (N)
+```
+
+Um grupo pode possuir vários itens.
+
+---
+
+## Endpoints de Grupo
+
+### Listar grupos
+
+```http
+GET /grupos
+```
+
+### Buscar grupo
+
+```http
+GET /grupos/:id
+```
+
+### Criar grupo
+
+```http
+POST /grupos
+```
+
+### Atualizar grupo
+
+```http
+PUT /grupos/:id
+```
+
+### Ativar/Inativar grupo
+
+```http
+PATCH /grupos/:id/status
+```
+
+---
+
+## Endpoints de Itens
+
+### Listar itens
+
+```http
+GET /itens
+```
+
+### Buscar item
+
+```http
+GET /itens/:id
+```
+
+### Criar item
+
+```http
+POST /itens
+```
+
+### Atualizar item
+
+```http
+PUT /itens/:id
+```
+
+### Ativar/Inativar item
+
+```http
+PATCH /itens/:id/status
+```
+
+---
+
+## Regras de Negócio
+
+### Grupo
+
+- Nome deve ser único.
+- Não permitir grupo duplicado.
+- Grupo inativo não deve receber novos itens.
+- Não excluir grupos que possuam itens vinculados.
+
+### Item
+
+- Código deve ser único.
+- Descrição obrigatória.
+- Classificação obrigatória.
+- Grupo obrigatório.
+- Não permitir item vinculado a grupo inexistente.
+- Não permitir item em grupo inativo.
+- Permitir ativação e inativação sem exclusão física.
+
+---
+
+## Validações
+
+### Grupo
+
+- Nome informado.
+- Nome único.
+
+### Item
+
+- Código informado.
+- Código único.
+- Descrição informada.
+- Grupo válido.
+- Classificação válida.
+
+---
+
+## Testes
+
+### Grupo
+
+- Criar grupo.
+- Atualizar grupo.
+- Listar grupos.
+- Buscar grupo.
+- Validar nome duplicado.
+- Ativar/Inativar grupo.
+
+### Item
+
+- Criar item.
+- Atualizar item.
+- Listar itens.
+- Buscar item.
+- Validar código duplicado.
+- Validar grupo inexistente.
+- Validar grupo inativo.
+- Ativar/Inativar item.
+
+---
+
+## Resultado Esperado
+
+Ao final desta fase o sistema deverá possuir:
+
+- Cadastro de grupos.
+- Cadastro de itens.
+- Relacionamento entre grupos e itens.
+- Validações básicas.
+- CRUD completo para ambas as entidades.
+- 
 # FASE 4 — Solicitações de Compra (MVP)
 
 ## Objetivo
