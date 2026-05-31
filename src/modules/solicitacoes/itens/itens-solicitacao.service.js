@@ -1,0 +1,98 @@
+import itensRepository from '../../itens/itens.repository.js';
+import solicitacoesRepository from '../solicitacoes.repository.js';
+import itensSolicitacaoRepository from './itens-solicitacao.repository.js';
+
+const statusEncerrados = new Set(['CANCELADA', 'FINALIZADA']);
+
+function createValidationError(message) {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+}
+
+function createNotFoundError(message) {
+  const error = new Error(message);
+  error.statusCode = 404;
+  return error;
+}
+
+function required(value) {
+  return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+async function validateSolicitacaoAberta(solicitacaoId) {
+  const solicitacao = await solicitacoesRepository.findById(solicitacaoId);
+
+  if (!solicitacao) {
+    throw createNotFoundError('Solicitacao nao encontrada.');
+  }
+
+  if (statusEncerrados.has(solicitacao.status)) {
+    throw createValidationError('Solicitacao encerrada nao pode alterar itens.');
+  }
+
+  return solicitacao;
+}
+
+async function validateItemExiste(itemId) {
+  if (!required(itemId)) {
+    throw createValidationError('Item e obrigatorio.');
+  }
+
+  const item = await itensRepository.findById(itemId);
+
+  if (!item) {
+    throw createNotFoundError('Item nao encontrado.');
+  }
+
+  return item;
+}
+
+function validateQuantidade(quantidade) {
+  if (quantidade === undefined || quantidade === null) {
+    throw createValidationError('Quantidade e obrigatoria.');
+  }
+
+  if (Number(quantidade) <= 0) {
+    throw createValidationError('Quantidade deve ser maior que zero.');
+  }
+}
+
+function validateDescricaoNecessidade(descricao) {
+  if (!required(descricao)) {
+    throw createValidationError('Descricao da necessidade e obrigatoria.');
+  }
+}
+
+async function create(solicitacaoId, data) {
+  await validateSolicitacaoAberta(solicitacaoId);
+  const item = await validateItemExiste(data?.item_id);
+  validateQuantidade(data?.quantidade);
+  validateDescricaoNecessidade(data?.descricao_necessidade);
+
+  return itensSolicitacaoRepository.create({
+    solicitacao_id: solicitacaoId,
+    item_id: data.item_id,
+    descricao_necessidade: data.descricao_necessidade,
+    quantidade: data.quantidade,
+    unidade_snapshot: item.unidade,
+    observacoes: data?.observacoes ?? null
+  });
+}
+
+async function remove(solicitacaoId, itemSolicitacaoId) {
+  await validateSolicitacaoAberta(solicitacaoId);
+
+  const itemSolicitacao = await itensSolicitacaoRepository.findById(itemSolicitacaoId);
+
+  if (!itemSolicitacao || Number(itemSolicitacao.solicitacao_id) !== Number(solicitacaoId)) {
+    throw createNotFoundError('Item da solicitacao nao encontrado.');
+  }
+
+  await itensSolicitacaoRepository.remove(itemSolicitacaoId);
+}
+
+export default {
+  create,
+  remove
+};
