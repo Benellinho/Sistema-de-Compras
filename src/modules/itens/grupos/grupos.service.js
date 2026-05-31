@@ -96,10 +96,23 @@ async function updateStatus(id, data) {
   });
 }
 
+async function remove(id) {
+  await findOne(id);
+
+  const totalItens = await gruposRepository.countItensByGrupoId(id);
+
+  if (totalItens > 0) {
+    throw createConflictError('Nao e possivel excluir grupo com itens vinculados.');
+  }
+
+  await gruposRepository.remove(id);
+}
+
 export default {
   list,
   findOne,
   create,
   update,
-  updateStatus
+  updateStatus,
+  remove
 };

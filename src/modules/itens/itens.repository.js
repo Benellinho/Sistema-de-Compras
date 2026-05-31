@@ -65,8 +65,18 @@ async function create({
 }) {
   const database = await getDatabase();
   const result = await database.run(
-    `INSERT INTO ITENS_COMPRA (codigo, descricao, unidade, classificacao, grupo_id, controla_estoque, ativo)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO ITENS_COMPRA (
+       codigo,
+       descricao,
+       unidade,
+       classificacao,
+       grupo_id,
+       controla_estoque,
+       ativo,
+       created_at,
+       updated_at
+     )
+     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
     [codigo, descricao, unidade, classificacao, grupo_id, controla_estoque, ativo]
   );
 
@@ -92,10 +102,17 @@ async function update(id, { codigo, descricao, unidade, classificacao, grupo_id,
   return findById(id);
 }
 
+async function remove(id) {
+  const database = await getDatabase();
+
+  await database.run('DELETE FROM ITENS_COMPRA WHERE id = ?', id);
+}
+
 export default {
   findAll,
   findById,
   findByCodigo,
   create,
-  update
+  update,
+  remove
 };

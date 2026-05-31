@@ -51,3 +51,12 @@ export async function updateItemStatus(req, res, next) {
     sendError(res, error);
   }
 }
+
+export async function deleteItem(req, res, next) {
+  try {
+    await itensService.remove(req.params.id);
+    res.status(204).send();
+  } catch (error) {
+    sendError(res, error);
+  }
+}

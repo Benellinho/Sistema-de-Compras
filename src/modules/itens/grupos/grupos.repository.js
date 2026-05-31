@@ -24,8 +24,8 @@ async function findByNome(nome) {
 async function create({ nome, ativo = 1 }) {
   const database = await getDatabase();
   const result = await database.run(
-    `INSERT INTO GRUPOS_ITENS (nome, ativo)
-     VALUES (?, ?)`,
+    `INSERT INTO GRUPOS_ITENS (nome, ativo, created_at, updated_at)
+     VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
     [nome, ativo]
   );
 
@@ -46,10 +46,25 @@ async function update(id, { nome, ativo }) {
   return findById(id);
 }
 
+async function countItensByGrupoId(id) {
+  const database = await getDatabase();
+  const result = await database.get('SELECT COUNT(*) AS total FROM ITENS_COMPRA WHERE grupo_id = ?', id);
+
+  return result.total;
+}
+
+async function remove(id) {
+  const database = await getDatabase();
+
+  await database.run('DELETE FROM GRUPOS_ITENS WHERE id = ?', id);
+}
+
 export default {
   findAll,
   findById,
   findByNome,
   create,
-  update
+  update,
+  countItensByGrupoId,
+  remove
 };

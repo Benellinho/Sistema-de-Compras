@@ -51,3 +51,12 @@ export async function updateGrupoStatus(req, res, next) {
     sendError(res, error);
   }
 }
+
+export async function deleteGrupo(req, res, next) {
+  try {
+    await gruposService.remove(req.params.grupoId);
+    res.status(204).send();
+  } catch (error) {
+    sendError(res, error);
+  }
+}

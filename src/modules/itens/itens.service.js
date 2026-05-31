@@ -148,10 +148,16 @@ async function updateStatus(id, data) {
   });
 }
 
+async function remove(id) {
+  await findOne(id);
+  await itensRepository.remove(id);
+}
+
 export default {
   list,
   findOne,
   create,
   update,
-  updateStatus
+  updateStatus,
+  remove
 };
