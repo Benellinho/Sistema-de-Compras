@@ -1,4 +1,4 @@
-import { getDatabase } from '../../db/connection.js';
+import { getDatabase } from '../../../db/connection.js';
 
 const solicitacaoFields = `
   s.id,
@@ -62,6 +62,20 @@ async function findItensBySolicitacaoId(id) {
   );
 }
 
+async function countItensBySolicitacaoId(id) {
+  const database = await getDatabase();
+  const result = await database.get(
+    `
+      SELECT COUNT(*) AS total
+      FROM solicitacao_compra_itens
+      WHERE solicitacao_id = ?
+    `,
+    id
+  );
+
+  return result?.total ?? 0;
+}
+
 async function create({ solicitante_id, status = 'ABERTA', observacoes = null }) {
   const database = await getDatabase();
   const result = await database.run(
@@ -90,6 +104,7 @@ export default {
   findAll,
   findById,
   findItensBySolicitacaoId,
+  countItensBySolicitacaoId,
   create,
   updateStatus
 };

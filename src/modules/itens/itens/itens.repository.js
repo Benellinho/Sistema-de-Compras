@@ -1,4 +1,4 @@
-import { getDatabase } from '../../db/connection.js';
+import { getDatabase } from '../../../db/connection.js';
 
 const itemFields = `
   i.id,

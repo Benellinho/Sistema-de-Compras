@@ -1,7 +1,7 @@
 import solicitacoesRepository from './solicitacoes.repository.js';
-import usuariosRepository from '../usuarios/usuarios.repository.js';
+import usuariosRepository from '../../usuarios/usuarios.repository.js';
 
-const statusValidos = new Set(['ABERTA', 'CANCELADA', 'FINALIZADA']);
+const statusValidos = new Set(['ABERTA', 'CANCELADA', 'FINALIZADA', 'APROVADA', 'REPROVADA']);
 
 function createValidationError(message) {
   const error = new Error(message);
@@ -19,15 +19,15 @@ function required(value) {
   return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
-async function validateSolicitanteExiste(solicitanteId) {
-  if (!required(solicitanteId)) {
-    throw createValidationError('Solicitante e obrigatorio.');
+async function validateUsuarioExiste(usuarioId, label = 'Usuario') {
+  if (!required(usuarioId)) {
+    throw createValidationError(`${label} e obrigatorio.`);
   }
 
-  const usuario = await usuariosRepository.findById(solicitanteId);
+  const usuario = await usuariosRepository.findById(usuarioId);
 
   if (!usuario) {
-    throw createNotFoundError('Solicitante nao encontrado.');
+    throw createNotFoundError(`${label} nao encontrado.`);
   }
 
   return usuario;
@@ -64,7 +64,7 @@ async function findOne(id) {
 }
 
 async function create(data) {
-  await validateSolicitanteExiste(data?.solicitante_id);
+  await validateUsuarioExiste(data?.solicitante_id, 'Solicitante');
 
   return solicitacoesRepository.create({
     solicitante_id: data.solicitante_id,

@@ -1,5 +1,5 @@
 import itensRepository from './itens.repository.js';
-import gruposRepository from './grupos/grupos.repository.js';
+import gruposRepository from '../grupos/grupos.repository.js';
 
 const classificacoesValidas = new Set(['CUSTO', 'DESPESA', 'INVESTIMENTO', 'PLR']);
 
