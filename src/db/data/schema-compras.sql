@@ -102,8 +102,8 @@ CREATE TABLE IF NOT EXISTS solicitacoes_compra (
         CHECK (
             status IN (
                 'ABERTA',
-                'RECUSADA',
                 'APROVADA',
+                'REPROVADA',
                 'EM_COTACAO',
                 'EM_ANALISE_COTACAO',
                 'COTACAO_REPROVADA',
@@ -159,9 +159,10 @@ CREATE TABLE IF NOT EXISTS solicitacao_compra_aprovacoes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     solicitacao_id INTEGER NOT NULL,
     aprovador_id INTEGER NOT NULL,
-    decisao TEXT NOT NULL CHECK (decisao IN ('APROVADO', 'RECUSADO', 'REPROVADO')),
+    decisao TEXT NOT NULL CHECK (decisao IN ('APROVADO', 'REPROVADO')),
     observacao TEXT,
-    data_decisao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (solicitacao_id),
     FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra(id) ON DELETE CASCADE,
     FOREIGN KEY (aprovador_id) REFERENCES usuarios(id)
 );

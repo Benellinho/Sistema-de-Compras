@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { initializeDatabase, getDatabase } from '../../../src/db/connection.js';
 import gruposService from '../../../src/modules/itens/grupos/grupos.service.js';
 import itensService from '../../../src/modules/itens/itens.service.js';
-import solicitacoesService from '../../../src/modules/solicitacoes/solicitacoes.service.js';
+import solicitacoesService from '../../../src/modules/solicitacoes/solicitacoes/solicitacoes.service.js';
 import usuariosService from '../../../src/modules/usuarios/usuarios.service.js';
 
 let sequence = 0;

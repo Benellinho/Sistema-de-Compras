@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS ITENS_COMPRA (
 CREATE TABLE IF NOT EXISTS solicitacoes_compra (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   solicitante_id INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'ABERTA' CHECK (status IN ('ABERTA', 'CANCELADA', 'FINALIZADA')),
+  status TEXT NOT NULL DEFAULT 'ABERTA' CHECK (status IN ('ABERTA', 'CANCELADA', 'FINALIZADA', 'APROVADA', 'REPROVADA')),
   observacoes TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -71,4 +71,29 @@ CREATE TABLE IF NOT EXISTS solicitacao_compra_itens (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id) ON DELETE CASCADE,
   FOREIGN KEY (item_id) REFERENCES ITENS_COMPRA (id)
+);
+
+CREATE TABLE IF NOT EXISTS solicitacao_compra_aprovacoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  solicitacao_id INTEGER NOT NULL UNIQUE,
+  aprovador_id INTEGER NOT NULL,
+  decisao TEXT NOT NULL CHECK (decisao IN ('APROVADO', 'REPROVADO')),
+  observacao TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id) ON DELETE CASCADE,
+  FOREIGN KEY (aprovador_id) REFERENCES USUARIOS (id)
+);
+
+CREATE TABLE IF NOT EXISTS solicitacao_compra_historico (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  solicitacao_id INTEGER NOT NULL,
+  usuario_id INTEGER,
+  etapa TEXT NOT NULL,
+  acao TEXT NOT NULL,
+  status_anterior TEXT,
+  status_novo TEXT,
+  observacao TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id) ON DELETE CASCADE,
+  FOREIGN KEY (usuario_id) REFERENCES USUARIOS (id)
 );

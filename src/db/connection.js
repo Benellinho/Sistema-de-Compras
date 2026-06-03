@@ -32,6 +32,8 @@ export async function initializeDatabase() {
   await ensureFornecedorColumns(database);
   await ensureGruposItensColumns(database);
   await ensureItensColumns(database);
+  await ensureSolicitacoesSchema(database);
+  await ensureSolicitacoesAprovacoesSchema(database);
 }
 
 async function ensureFornecedorColumns(database) {
@@ -99,4 +101,88 @@ async function ensureItensColumns(database) {
     SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP),
         updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)
   `);
+}
+
+async function ensureSolicitacoesSchema(database) {
+  await ensureSolicitacoesCompraStatus(database);
+}
+
+async function ensureSolicitacoesAprovacoesSchema(database) {
+  await database.exec(`
+    CREATE TABLE IF NOT EXISTS solicitacao_compra_aprovacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      solicitacao_id INTEGER NOT NULL UNIQUE,
+      aprovador_id INTEGER NOT NULL,
+      decisao TEXT NOT NULL CHECK (decisao IN ('APROVADO', 'REPROVADO')),
+      observacao TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id) ON DELETE CASCADE,
+      FOREIGN KEY (aprovador_id) REFERENCES USUARIOS (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS solicitacao_compra_historico (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      solicitacao_id INTEGER NOT NULL,
+      usuario_id INTEGER,
+      etapa TEXT NOT NULL,
+      acao TEXT NOT NULL,
+      status_anterior TEXT,
+      status_novo TEXT,
+      observacao TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id) ON DELETE CASCADE,
+      FOREIGN KEY (usuario_id) REFERENCES USUARIOS (id)
+    );
+  `);
+}
+
+async function ensureSolicitacoesCompraStatus(database) {
+  const table = await database.get(`
+    SELECT sql
+    FROM sqlite_master
+    WHERE type = 'table'
+      AND name = 'solicitacoes_compra'
+  `);
+
+  if (!table?.sql || table.sql.includes('APROVADA') && table.sql.includes('REPROVADA')) {
+    return;
+  }
+
+  await database.exec('PRAGMA foreign_keys = OFF');
+
+  try {
+    await database.exec(`
+      CREATE TABLE solicitacoes_compra_nova (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        solicitante_id INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'ABERTA' CHECK (status IN ('ABERTA', 'CANCELADA', 'FINALIZADA', 'APROVADA', 'REPROVADA')),
+        observacoes TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (solicitante_id) REFERENCES USUARIOS (id)
+      );
+
+      INSERT INTO solicitacoes_compra_nova (
+        id,
+        solicitante_id,
+        status,
+        observacoes,
+        created_at,
+        updated_at
+      )
+      SELECT
+        id,
+        solicitante_id,
+        status,
+        observacoes,
+        COALESCE(created_at, CURRENT_TIMESTAMP),
+        COALESCE(updated_at, CURRENT_TIMESTAMP)
+      FROM solicitacoes_compra;
+
+      DROP TABLE solicitacoes_compra;
+      ALTER TABLE solicitacoes_compra_nova RENAME TO solicitacoes_compra;
+    `);
+  } finally {
+    await database.exec('PRAGMA foreign_keys = ON');
+  }
 }

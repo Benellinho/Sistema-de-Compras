@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import solicitacoesService from '../../../src/modules/solicitacoes/solicitacoes.service.js';
+import solicitacoesService from '../../../src/modules/solicitacoes/solicitacoes/solicitacoes.service.js';
 import { setupDatabase } from '../helpers/test-utils.js';
 
 export default async function testValidarSolicitanteInexistente() {

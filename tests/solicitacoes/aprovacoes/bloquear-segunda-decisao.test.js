@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import solicitacoesService from '../../../src/modules/solicitacoes/solicitacoes/solicitacoes.service.js';
+import aprovacoesService from '../../../src/modules/solicitacoes/aprovacoes/aprovacoes.service.js';
 import itensSolicitacaoService from '../../../src/modules/solicitacoes/itens-solicitacao/itens-solicitacao.service.js';
 import {
   cleanupGrupoByNome,
@@ -11,7 +11,7 @@ import {
   setupDatabase
 } from '../helpers/test-utils.js';
 
-export default async function testBuscarSolicitacao() {
+export default async function testBloquearSegundaDecisao() {
   await setupDatabase();
 
   const solicitacao = await createSolicitacaoFixture();
@@ -19,16 +19,23 @@ export default async function testBuscarSolicitacao() {
 
   await itensSolicitacaoService.create(solicitacao.id, {
     item_id: item.id,
-    descricao_necessidade: 'Necessidade para detalhe',
-    quantidade: 2
+    descricao_necessidade: 'Reposicao para decisao unica',
+    quantidade: 1
   });
 
-  const encontrada = await solicitacoesService.findOne(solicitacao.id);
+  await aprovacoesService.decide(solicitacao.id, {
+    aprovador_id: solicitacao.usuarioFixture.id,
+    decisao: 'APROVADO'
+  });
 
-  assert.equal(encontrada.id, solicitacao.id);
-  assert.ok(Array.isArray(encontrada.itens));
-  assert.equal(encontrada.itens.length, 1);
-  assert.equal(encontrada.itens[0].unidade_snapshot, item.unidade);
+  await assert.rejects(
+    () => aprovacoesService.decide(solicitacao.id, {
+      aprovador_id: solicitacao.usuarioFixture.id,
+      decisao: 'REPROVADO',
+      observacao: 'Revisao posterior'
+    }),
+    /Apenas solicitacoes abertas/
+  );
 
   await cleanupSolicitacaoById(solicitacao.id);
   await cleanupItemByCodigo(item.codigo);

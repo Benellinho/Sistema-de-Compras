@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import itensSolicitacaoService from '../../../src/modules/solicitacoes/itens/itens-solicitacao.service.js';
+import itensSolicitacaoService from '../../../src/modules/solicitacoes/itens-solicitacao/itens-solicitacao.service.js';
 import { cleanupSolicitacaoById, cleanupUsuarioByEmail, createSolicitacaoFixture, setupDatabase } from '../helpers/test-utils.js';
 
 export default async function testValidarItemInexistente() {
