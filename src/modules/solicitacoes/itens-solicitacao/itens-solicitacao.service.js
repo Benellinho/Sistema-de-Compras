@@ -1,8 +1,8 @@
 import itensRepository from '../../itens/itens.repository.js';
-import solicitacoesRepository from '../solicitacoes.repository.js';
+import solicitacoesRepository from '../solicitacoes/solicitacoes.repository.js';
 import itensSolicitacaoRepository from './itens-solicitacao.repository.js';
 
-const statusEncerrados = new Set(['CANCELADA', 'FINALIZADA']);
+const statusEncerrados = new Set(['CANCELADA', 'FINALIZADA', 'APROVADA', 'REPROVADA']);
 
 function createValidationError(message) {
   const error = new Error(message);
