@@ -1,8 +1,10 @@
 import { getDatabase } from '../../src/db/connection.js';
 import testAprovarSolicitacao from './aprovacoes/aprovar-solicitacao.test.js';
+import testBloquearAprovadorInativo from './aprovacoes/bloquear-aprovador-inativo.test.js';
 import testBloquearAprovacaoSemItens from './aprovacoes/bloquear-aprovacao-sem-itens.test.js';
 import testBloquearReprovacaoSemObservacao from './aprovacoes/bloquear-reprovacao-sem-observacao.test.js';
 import testBloquearSegundaDecisao from './aprovacoes/bloquear-segunda-decisao.test.js';
+import testReprovarSolicitacao from './aprovacoes/reprovar-solicitacao.test.js';
 import testAdicionarItemSolicitacao from './itens/adicionar-item-solicitacao.test.js';
 import testBloquearAdicaoItemSolicitacaoEncerrada from './itens/bloquear-adicao-item-solicitacao-encerrada.test.js';
 import testBloquearRemocaoItemSolicitacaoEncerrada from './itens/bloquear-remocao-item-solicitacao-encerrada.test.js';
@@ -46,6 +48,8 @@ const tests = [
     group: 'APROVACOES',
     items: [
       ['aprovar solicitacao', testAprovarSolicitacao],
+      ['reprovar solicitacao', testReprovarSolicitacao],
+      ['bloquear aprovador inativo', testBloquearAprovadorInativo],
       ['bloquear aprovacao sem itens', testBloquearAprovacaoSemItens],
       ['bloquear reprovacao sem observacao', testBloquearReprovacaoSemObservacao],
       ['bloquear segunda decisao', testBloquearSegundaDecisao]
