@@ -59,6 +59,32 @@ async function validateItemResposta(cotacaoId, item) {
     throw createValidationError('Item nao pertence a solicitacao da cotacao.');
   }
 
+  const statusItem = item?.indisponivel === true || item?.status_item === 'INDISPONIVEL'
+    ? 'INDISPONIVEL'
+    : 'DISPONIVEL';
+
+  if (statusItem === 'INDISPONIVEL') {
+    if (required(item?.quantidade)) {
+      throw createValidationError('Item indisponivel nao deve possuir quantidade cotada.');
+    }
+
+    if (required(item?.valor_unitario)) {
+      throw createValidationError('Item indisponivel deve manter valor unitario nulo.');
+    }
+
+    return {
+      solicitacao_item_id: item.solicitacao_item_id,
+      status_item: 'INDISPONIVEL',
+      quantidade: null,
+      valor_unitario: null,
+      observacoes: item?.observacoes ?? null
+    };
+  }
+
+  if (item?.status_item && item.status_item !== 'DISPONIVEL') {
+    throw createValidationError('Status do item da cotacao invalido.');
+  }
+
   const quantidade = Number(item?.quantidade);
 
   if (!Number.isFinite(quantidade) || quantidade <= 0) {
@@ -81,6 +107,7 @@ async function validateItemResposta(cotacaoId, item) {
 
   return {
     solicitacao_item_id: item.solicitacao_item_id,
+    status_item: 'DISPONIVEL',
     quantidade,
     valor_unitario: valorUnitario,
     observacoes: item?.observacoes ?? null

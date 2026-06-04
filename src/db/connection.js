@@ -180,15 +180,91 @@ async function ensureCotacoesSchema(database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cotacao_fornecedor_id INTEGER NOT NULL,
       solicitacao_item_id INTEGER NOT NULL,
-      quantidade REAL NOT NULL CHECK (quantidade > 0),
+      status_item TEXT NOT NULL DEFAULT 'DISPONIVEL' CHECK (status_item IN ('DISPONIVEL', 'INDISPONIVEL')),
+      quantidade REAL CHECK (quantidade IS NULL OR quantidade > 0),
       valor_unitario REAL CHECK (valor_unitario >= 0),
       valor_total REAL GENERATED ALWAYS AS (quantidade * valor_unitario) STORED,
       observacoes TEXT,
+      CHECK (
+        (status_item = 'DISPONIVEL' AND quantidade IS NOT NULL AND valor_unitario IS NOT NULL)
+        OR
+        (status_item = 'INDISPONIVEL' AND quantidade IS NULL AND valor_unitario IS NULL)
+      ),
       UNIQUE (cotacao_fornecedor_id, solicitacao_item_id),
       FOREIGN KEY (cotacao_fornecedor_id) REFERENCES cotacao_fornecedores (id) ON DELETE CASCADE,
       FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id)
     );
   `);
+
+  await ensureCotacaoFornecedorItensDisponibilidadeSchema(database);
+}
+
+async function ensureCotacaoFornecedorItensDisponibilidadeSchema(database) {
+  const table = await database.get(`
+    SELECT sql
+    FROM sqlite_master
+    WHERE type = 'table'
+      AND name = 'cotacao_fornecedor_itens'
+  `);
+
+  if (!table?.sql || table.sql.includes('status_item') && !table.sql.includes('quantidade REAL NOT NULL')) {
+    return;
+  }
+
+  await database.exec('PRAGMA foreign_keys = OFF');
+
+  try {
+    await database.exec(`
+      CREATE TABLE cotacao_fornecedor_itens_nova (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cotacao_fornecedor_id INTEGER NOT NULL,
+        solicitacao_item_id INTEGER NOT NULL,
+        status_item TEXT NOT NULL DEFAULT 'DISPONIVEL' CHECK (status_item IN ('DISPONIVEL', 'INDISPONIVEL')),
+        quantidade REAL CHECK (quantidade IS NULL OR quantidade > 0),
+        valor_unitario REAL CHECK (valor_unitario >= 0),
+        valor_total REAL GENERATED ALWAYS AS (quantidade * valor_unitario) STORED,
+        observacoes TEXT,
+        CHECK (
+          (status_item = 'DISPONIVEL' AND quantidade IS NOT NULL AND valor_unitario IS NOT NULL)
+          OR
+          (status_item = 'INDISPONIVEL' AND quantidade IS NULL AND valor_unitario IS NULL)
+        ),
+        UNIQUE (cotacao_fornecedor_id, solicitacao_item_id),
+        FOREIGN KEY (cotacao_fornecedor_id) REFERENCES cotacao_fornecedores (id) ON DELETE CASCADE,
+        FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id)
+      );
+
+      INSERT INTO cotacao_fornecedor_itens_nova (
+        id,
+        cotacao_fornecedor_id,
+        solicitacao_item_id,
+        status_item,
+        quantidade,
+        valor_unitario,
+        observacoes
+      )
+      SELECT
+        id,
+        cotacao_fornecedor_id,
+        solicitacao_item_id,
+        CASE
+          WHEN valor_unitario IS NULL THEN 'INDISPONIVEL'
+          ELSE 'DISPONIVEL'
+        END,
+        CASE
+          WHEN valor_unitario IS NULL THEN NULL
+          ELSE quantidade
+        END,
+        valor_unitario,
+        observacoes
+      FROM cotacao_fornecedor_itens;
+
+      DROP TABLE cotacao_fornecedor_itens;
+      ALTER TABLE cotacao_fornecedor_itens_nova RENAME TO cotacao_fornecedor_itens;
+    `);
+  } finally {
+    await database.exec('PRAGMA foreign_keys = ON');
+  }
 }
 
 async function ensureSolicitacoesCompraStatus(database) {

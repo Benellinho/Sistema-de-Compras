@@ -5,6 +5,7 @@ import cotacoesRepository from './cotacoes.repository.js';
 
 const statusValidos = new Set(['ABERTA', 'EM_ANDAMENTO', 'EM_ANALISE', 'APROVADA', 'REPROVADA', 'CANCELADA', 'ENCERRADA']);
 const statusEncerrados = new Set(['APROVADA', 'REPROVADA', 'CANCELADA', 'ENCERRADA']);
+const statusSolicitacaoPermitidosParaCotacao = new Set(['APROVADA', 'COTACAO_REPROVADA']);
 
 function createValidationError(message) {
   const error = new Error(message);
@@ -88,8 +89,8 @@ async function create(data) {
     throw createNotFoundError('Solicitacao nao encontrada.');
   }
 
-  if (solicitacao.status !== 'APROVADA') {
-    throw createValidationError('Cotacao so pode ser criada para solicitacao aprovada.');
+  if (!statusSolicitacaoPermitidosParaCotacao.has(solicitacao.status)) {
+    throw createValidationError('Cotacao so pode ser criada para solicitacao aprovada ou com cotacao reprovada.');
   }
 
   const itensCount = await solicitacoesRepository.countItensBySolicitacaoId(data.solicitacao_id);

@@ -158,10 +158,16 @@ CREATE TABLE IF NOT EXISTS cotacao_fornecedor_itens (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   cotacao_fornecedor_id INTEGER NOT NULL,
   solicitacao_item_id INTEGER NOT NULL,
-  quantidade REAL NOT NULL CHECK (quantidade > 0),
+  status_item TEXT NOT NULL DEFAULT 'DISPONIVEL' CHECK (status_item IN ('DISPONIVEL', 'INDISPONIVEL')),
+  quantidade REAL CHECK (quantidade IS NULL OR quantidade > 0),
   valor_unitario REAL CHECK (valor_unitario >= 0),
   valor_total REAL GENERATED ALWAYS AS (quantidade * valor_unitario) STORED,
   observacoes TEXT,
+  CHECK (
+    (status_item = 'DISPONIVEL' AND quantidade IS NOT NULL AND valor_unitario IS NOT NULL)
+    OR
+    (status_item = 'INDISPONIVEL' AND quantidade IS NULL AND valor_unitario IS NULL)
+  ),
   UNIQUE (cotacao_fornecedor_id, solicitacao_item_id),
   FOREIGN KEY (cotacao_fornecedor_id) REFERENCES cotacao_fornecedores (id) ON DELETE CASCADE,
   FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id)

@@ -120,6 +120,18 @@ async function updateStatus(id, { status, usuario_id = null, observacao = null, 
       [status, status, id]
     );
 
+    if (status === 'REPROVADA') {
+      await database.run(
+        `
+          UPDATE solicitacoes_compra
+          SET status = 'COTACAO_REPROVADA',
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `,
+        cotacao.solicitacao_id
+      );
+    }
+
     await insertHistorico(database, {
       solicitacao_id: cotacao.solicitacao_id,
       usuario_id,
@@ -317,13 +329,15 @@ async function registrarResposta({
           INSERT INTO cotacao_fornecedor_itens (
             cotacao_fornecedor_id,
             solicitacao_item_id,
+            status_item,
             quantidade,
             valor_unitario,
             observacoes
           )
-          VALUES (?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?)
           ON CONFLICT(cotacao_fornecedor_id, solicitacao_item_id)
           DO UPDATE SET
+            status_item = excluded.status_item,
             quantidade = excluded.quantidade,
             valor_unitario = excluded.valor_unitario,
             observacoes = excluded.observacoes
@@ -331,6 +345,7 @@ async function registrarResposta({
         [
           cotacao_fornecedor_id,
           item.solicitacao_item_id,
+          item.status_item,
           item.quantidade,
           item.valor_unitario,
           item.observacoes ?? null
@@ -412,6 +427,7 @@ async function findItensByCotacaoFornecedorId(cotacaoFornecedorId) {
         i.codigo AS item_codigo,
         i.descricao AS item_descricao,
         si.quantidade AS quantidade_solicitada,
+        cfi.status_item,
         cfi.quantidade,
         cfi.valor_unitario,
         cfi.valor_total,
@@ -503,6 +519,7 @@ async function getComparativo(cotacaoId) {
         cf.prazo_entrega,
         cf.forma_pagamento,
         cfi.solicitacao_item_id,
+        cfi.status_item,
         cfi.quantidade,
         cfi.valor_unitario,
         cfi.valor_total,

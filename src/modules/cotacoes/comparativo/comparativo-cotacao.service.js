@@ -24,7 +24,7 @@ async function get(cotacaoId) {
 
     const fornecedor = fornecedoresMap.get(resposta.cotacao_fornecedor_id);
 
-    if (resposta.solicitacao_item_id) {
+    if (resposta.solicitacao_item_id && resposta.status_item === 'DISPONIVEL') {
       fornecedor.total += Number(resposta.valor_total ?? 0);
     }
   }
@@ -45,6 +45,8 @@ async function get(cotacaoId) {
             fornecedor_id: fornecedor.fornecedor_id,
             fornecedor_razao_social: fornecedor.fornecedor_razao_social,
             status: fornecedor.status,
+            status_item: resposta.status_item,
+            indisponivel: resposta.status_item === 'INDISPONIVEL',
             quantidade: resposta.quantidade,
             valor_unitario: resposta.valor_unitario,
             valor_total: resposta.valor_total,
@@ -61,13 +63,17 @@ async function get(cotacaoId) {
       fornecedor.itens.push({
         solicitacao_item_id: item.solicitacao_item_id,
         valor_total: resposta?.valor_total ?? null,
+        status_item: resposta?.status_item ?? null,
+        indisponivel: resposta?.status_item === 'INDISPONIVEL',
         sem_resposta: !resposta
       });
 
       return respostaFormatada;
     });
 
-    const respostasComValor = respostasItem.filter((resposta) => !resposta.sem_resposta);
+    const respostasComValor = respostasItem.filter(
+      (resposta) => !resposta.sem_resposta && !resposta.indisponivel && resposta.valor_unitario !== null
+    );
     const menorValor = respostasComValor.reduce((menor, resposta) => {
       if (!menor || Number(resposta.valor_unitario) < Number(menor.valor_unitario)) {
         return resposta;

@@ -171,6 +171,8 @@ Legenda:
 | `tests/cotacoes/cotacoes/bloquear-solicitacao-nao-aprovada.test.js` | Testa bloqueio de cotação para solicitação que ainda não foi aprovada. | Regra de negócio |
 | `tests/cotacoes/cotacoes/bloquear-fornecedor-duplicado.test.js` | Testa bloqueio de fornecedor duplicado na mesma cotação. | Regra de negócio, Banco |
 | `tests/cotacoes/cotacoes/bloquear-quantidade-maior.test.js` | Testa bloqueio de quantidade cotada maior que a quantidade solicitada. | Regra de negócio |
+| `tests/cotacoes/cotacoes/permitir-nova-rodada-cotacao-reprovada.test.js` | Testa nova rodada quando a cotação anterior foi reprovada e a solicitação ficou `COTACAO_REPROVADA`. | Regra de negócio, Banco |
+| `tests/cotacoes/cotacoes/registrar-item-indisponivel.test.js` | Testa item indisponível com `valor_unitario = null`, fora do menor preço e do total do fornecedor. | Regra de negócio, Banco |
 
 ---
 
@@ -201,4 +203,3 @@ POST /cotacoes
 PATCH /cotacoes/:id/status
 GET /cotacoes/:id/comparativo
 ```
-

@@ -84,6 +84,8 @@ Resultado esperado:
 
 A cotação é criada a partir de uma solicitação aprovada. Fornecedores são vinculados e podem enviar valores por item.
 
+Se uma rodada de cotação for reprovada, a solicitação deve ficar com status `COTACAO_REPROVADA`. Esse status indica que a solicitação continua válida, mas precisa de uma nova rodada de cotação.
+
 Status da cotação:
 
 ```txt
@@ -223,6 +225,9 @@ Cotação:
 ABERTA -> CANCELADA
 EM_ANALISE -> REPROVADA
 
+Solicitação após cotação reprovada:
+EM_COTACAO -> COTACAO_REPROVADA -> EM_COTACAO
+
 Compra:
 AGUARDANDO_APROVACAO -> REPROVADA
 EM_MONTAGEM -> CANCELADA
@@ -231,4 +236,3 @@ Ordem de compra:
 GERADA -> CANCELADA
 AGUARDANDO_RECEBIMENTO -> RECEBIDA_PARCIAL
 ```
-
