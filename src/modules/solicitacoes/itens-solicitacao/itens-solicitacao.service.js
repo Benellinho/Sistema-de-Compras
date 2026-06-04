@@ -1,4 +1,4 @@
-import itensRepository from '../../itens/itens.repository.js';
+import itensRepository from '../../itens/itens/itens.repository.js';
 import solicitacoesRepository from '../solicitacoes/solicitacoes.repository.js';
 import itensSolicitacaoRepository from './itens-solicitacao.repository.js';
 

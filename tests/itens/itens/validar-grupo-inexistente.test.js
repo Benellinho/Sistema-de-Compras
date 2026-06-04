@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import itensService from '../../../src/modules/itens/itens.service.js';
+import itensService from '../../../src/modules/itens/itens/itens.service.js';
 import { cleanupItemByCodigo, createItemPayload, setupDatabase } from '../helpers/test-utils.js';
 
 export default async function testValidarGrupoInexistente() {
