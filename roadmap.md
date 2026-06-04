@@ -652,6 +652,12 @@ GET /solicitacoes/:id/historico
 * Registrar histórico
 * Auditoria de alterações
 
+## Pendências Deliberadas Para Fases Futuras
+
+* Aprovação parcial de solicitações por item ou quantidade.
+* Reprovação parcial de solicitações por item ou quantidade.
+* Fluxo de compra parcial quando parte dos itens for atendida por um fornecedor e outra parte por outro.
+
 ---
 
 # FASE 6 — Sistema de Cotações
@@ -809,6 +815,8 @@ Registrar recebimento dos itens.
 * PostgreSQL
 * JWT/Auth
 * Controle de usuários
+* Aprovação e reprovação parcial de solicitações
+* Compra parcial com divisão de itens e quantidades entre fornecedores
 * Dashboard
 * Upload de anexos
 * E-mail automático
