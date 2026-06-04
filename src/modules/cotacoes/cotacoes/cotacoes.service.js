@@ -78,6 +78,18 @@ async function findOne(id) {
   };
 }
 
+async function list(filters = {}) {
+  if (filters?.status && !statusValidos.has(filters.status)) {
+    throw createValidationError('Status da cotacao invalido.');
+  }
+
+  return cotacoesRepository.findAll({
+    status: filters?.status || null,
+    solicitacao_id: filters?.solicitacao_id || null,
+    criado_por: filters?.criado_por || null
+  });
+}
+
 async function create(data) {
   if (!required(data?.solicitacao_id)) {
     throw createValidationError('Solicitacao e obrigatoria.');
@@ -169,13 +181,26 @@ async function updateStatus(id, data) {
   const cotacaoAtualizada = await cotacoesRepository.updateStatus(id, {
     status: data.status,
     usuario_id: data?.usuario_id ?? null,
-    observacao: data?.observacao ?? null
+    observacao: data?.observacao ?? null,
+    acao: getAcaoAlteracaoStatus(data.status)
   });
 
   return {
     cotacao: cotacaoAtualizada,
     resumo_respostas: await cotacoesRepository.getResumoRespostas(id)
   };
+}
+
+function getAcaoAlteracaoStatus(status) {
+  if (status === 'CANCELADA') {
+    return 'CANCELAMENTO_COTACAO';
+  }
+
+  if (status === 'ENCERRADA') {
+    return 'ENCERRAMENTO_COTACAO';
+  }
+
+  return 'ALTERACAO_STATUS';
 }
 
 async function validateFornecedorExiste(fornecedorId) {
@@ -209,6 +234,7 @@ export {
 };
 
 export default {
+  list,
   findOne,
   create,
   updateStatus

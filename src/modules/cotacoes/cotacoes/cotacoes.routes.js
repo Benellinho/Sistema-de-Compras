@@ -6,11 +6,12 @@ import {
   updateFornecedorCotacaoStatus
 } from '../fornecedores/fornecedores-cotacao.controller.js';
 import { registrarRespostaCotacao } from '../respostas/respostas-cotacao.controller.js';
-import { createCotacao, getCotacao, updateCotacaoStatus } from './cotacoes.controller.js';
+import { createCotacao, getCotacao, listCotacoes, updateCotacaoStatus } from './cotacoes.controller.js';
 
 const router = Router();
 
 router.post('/', createCotacao);
+router.get('/', listCotacoes);
 router.get('/:id', getCotacao);
 router.patch('/:id/status', updateCotacaoStatus);
 router.get('/:id/comparativo', getComparativoCotacao);

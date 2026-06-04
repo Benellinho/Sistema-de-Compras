@@ -15,6 +15,15 @@ export async function createCotacao(req, res) {
   }
 }
 
+export async function listCotacoes(req, res) {
+  try {
+    const cotacoes = await cotacoesService.list(req.query);
+    res.json(cotacoes);
+  } catch (error) {
+    sendError(res, error);
+  }
+}
+
 export async function getCotacao(req, res) {
   try {
     const cotacao = await cotacoesService.findOne(req.params.id);

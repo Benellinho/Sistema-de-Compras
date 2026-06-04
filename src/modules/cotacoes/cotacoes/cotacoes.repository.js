@@ -26,6 +26,40 @@ async function findById(id) {
   );
 }
 
+async function findAll(filters = {}) {
+  const database = await getDatabase();
+  const conditions = [];
+  const params = [];
+
+  if (filters.status) {
+    conditions.push('c.status = ?');
+    params.push(filters.status);
+  }
+
+  if (filters.solicitacao_id) {
+    conditions.push('c.solicitacao_id = ?');
+    params.push(filters.solicitacao_id);
+  }
+
+  if (filters.criado_por) {
+    conditions.push('c.criado_por = ?');
+    params.push(filters.criado_por);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  return database.all(
+    `
+      SELECT ${cotacaoFields}
+      FROM cotacoes c
+      LEFT JOIN USUARIOS u ON u.id = c.criado_por
+      ${where}
+      ORDER BY c.id DESC
+    `,
+    params
+  );
+}
+
 async function findOpenBySolicitacaoId(solicitacaoId) {
   const database = await getDatabase();
 
@@ -564,6 +598,7 @@ async function insertHistorico(database, data) {
 
 export default {
   findById,
+  findAll,
   findOpenBySolicitacaoId,
   findNextRodadaBySolicitacaoId,
   create,
