@@ -11,8 +11,10 @@ import testBloquearSolicitacaoReprovada from './cotacoes/bloquear-solicitacao-re
 import testBloquearValorNegativo from './cotacoes/bloquear-valor-negativo.test.js';
 import testBuscarDetalhesCotacao from './cotacoes/buscar-detalhes-cotacao.test.js';
 import testFluxoCotacao from './cotacoes/fluxo-cotacao.test.js';
+import testListarCotacoesFiltradas from './cotacoes/listar-cotacoes-filtradas.test.js';
 import testPermitirNovaRodadaCotacaoReprovada from './cotacoes/permitir-nova-rodada-cotacao-reprovada.test.js';
 import testRegistrarFornecedorSemValores from './cotacoes/registrar-fornecedor-sem-valores.test.js';
+import testRegistrarHistoricoStatusFinal from './cotacoes/registrar-historico-status-final.test.js';
 import testRegistrarItemIndisponivel from './cotacoes/registrar-item-indisponivel.test.js';
 
 const tests = [
@@ -20,6 +22,7 @@ const tests = [
     group: 'COTACOES',
     items: [
       ['fluxo cotacao', testFluxoCotacao],
+      ['listar cotacoes filtradas', testListarCotacoesFiltradas],
       ['buscar detalhes cotacao', testBuscarDetalhesCotacao],
       ['bloquear solicitacao nao aprovada', testBloquearSolicitacaoNaoAprovada],
       ['bloquear solicitacao reprovada', testBloquearSolicitacaoReprovada],
@@ -32,6 +35,7 @@ const tests = [
       ['bloquear resposta cotacao encerrada', testBloquearRespostaCotacaoEncerrada],
       ['permitir nova rodada cotacao reprovada', testPermitirNovaRodadaCotacaoReprovada],
       ['registrar fornecedor sem valores', testRegistrarFornecedorSemValores],
+      ['registrar historico status final', testRegistrarHistoricoStatusFinal],
       ['registrar item indisponivel', testRegistrarItemIndisponivel]
     ]
   }

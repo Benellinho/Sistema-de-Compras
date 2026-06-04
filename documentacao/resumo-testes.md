@@ -168,6 +168,7 @@ Legenda:
 | Arquivo | Função | Cobertura |
 |---|---|---|
 | `tests/cotacoes/cotacoes/fluxo-cotacao.test.js` | Testa fluxo principal: criar cotação para solicitação aprovada, adicionar fornecedor, marcar envio, registrar resposta parcial, iniciar análise manualmente e gerar comparativo. | Regra de negócio, Banco |
+| `tests/cotacoes/cotacoes/listar-cotacoes-filtradas.test.js` | Testa listagem de cotações com filtros por status e solicitação. | Regra de negócio, Banco |
 | `tests/cotacoes/cotacoes/buscar-detalhes-cotacao.test.js` | Testa busca detalhada da cotação com fornecedores e itens respondidos. | Regra de negócio, Banco |
 | `tests/cotacoes/cotacoes/bloquear-solicitacao-nao-aprovada.test.js` | Testa bloqueio de cotação para solicitação que ainda não foi aprovada. | Regra de negócio |
 | `tests/cotacoes/cotacoes/bloquear-solicitacao-reprovada.test.js` | Testa bloqueio de cotação para solicitação reprovada na aprovação. | Regra de negócio |
@@ -180,6 +181,7 @@ Legenda:
 | `tests/cotacoes/cotacoes/bloquear-resposta-cotacao-encerrada.test.js` | Testa bloqueio de resposta em cotação cancelada ou encerrada. | Regra de negócio |
 | `tests/cotacoes/cotacoes/permitir-nova-rodada-cotacao-reprovada.test.js` | Testa nova rodada quando a cotação anterior foi reprovada e a solicitação ficou `COTACAO_REPROVADA`. | Regra de negócio, Banco |
 | `tests/cotacoes/cotacoes/registrar-fornecedor-sem-valores.test.js` | Testa registro de fornecedor como `RECUSADO` e `SEM_RESPOSTA` sem exigir valores por item. | Regra de negócio, Banco |
+| `tests/cotacoes/cotacoes/registrar-historico-status-final.test.js` | Testa ações específicas de histórico para cancelamento e encerramento da cotação. | Regra de negócio, Banco |
 | `tests/cotacoes/cotacoes/registrar-item-indisponivel.test.js` | Testa item indisponível com `valor_unitario = null`, fora do menor preço e do total do fornecedor. | Regra de negócio, Banco |
 
 ---
