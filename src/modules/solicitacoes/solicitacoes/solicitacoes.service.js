@@ -1,7 +1,26 @@
 import solicitacoesRepository from './solicitacoes.repository.js';
 import usuariosRepository from '../../usuarios/usuarios.repository.js';
 
-const statusValidos = new Set(['ABERTA', 'CANCELADA', 'FINALIZADA', 'APROVADA', 'REPROVADA']);
+const statusValidos = new Set([
+  'ABERTA',
+  'APROVADA',
+  'REPROVADA',
+  'EM_COTACAO',
+  'EM_ANALISE_COTACAO',
+  'COTACAO_REPROVADA',
+  'COTACAO_APROVADA',
+  'EM_ESCOLHA_FORNECEDOR',
+  'AGUARDANDO_APROVACAO_COMPRA',
+  'COMPRA_APROVADA',
+  'COMPRA_REPROVADA',
+  'OC_GERADA',
+  'OC_ENVIADA',
+  'AGUARDANDO_RECEBIMENTO',
+  'RECEBIDA_PARCIAL',
+  'RECEBIDA_TOTAL',
+  'CANCELADA',
+  'FINALIZADA'
+]);
 
 function createValidationError(message) {
   const error = new Error(message);

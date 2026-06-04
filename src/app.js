@@ -1,4 +1,5 @@
 import express from 'express';
+import cotacoesRoutes from './modules/cotacoes/cotacoes/cotacoes.routes.js';
 import fornecedoresRoutes from './modules/fornecedores/fornecedores/fornecedores.routes.js';
 import gruposRoutes from './modules/itens/grupos/grupos.routes.js';
 import itensRoutes from './modules/itens/itens/itens.routes.js';
@@ -13,6 +14,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.use('/cotacoes', cotacoesRoutes);
 app.use('/fornecedores', fornecedoresRoutes);
 app.use('/grupos', gruposRoutes);
 app.use('/itens', itensRoutes);

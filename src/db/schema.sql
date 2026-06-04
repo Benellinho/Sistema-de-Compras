@@ -53,7 +53,26 @@ CREATE TABLE IF NOT EXISTS ITENS_COMPRA (
 CREATE TABLE IF NOT EXISTS solicitacoes_compra (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   solicitante_id INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'ABERTA' CHECK (status IN ('ABERTA', 'CANCELADA', 'FINALIZADA', 'APROVADA', 'REPROVADA')),
+  status TEXT NOT NULL DEFAULT 'ABERTA' CHECK (status IN (
+    'ABERTA',
+    'APROVADA',
+    'REPROVADA',
+    'EM_COTACAO',
+    'EM_ANALISE_COTACAO',
+    'COTACAO_REPROVADA',
+    'COTACAO_APROVADA',
+    'EM_ESCOLHA_FORNECEDOR',
+    'AGUARDANDO_APROVACAO_COMPRA',
+    'COMPRA_APROVADA',
+    'COMPRA_REPROVADA',
+    'OC_GERADA',
+    'OC_ENVIADA',
+    'AGUARDANDO_RECEBIMENTO',
+    'RECEBIDA_PARCIAL',
+    'RECEBIDA_TOTAL',
+    'CANCELADA',
+    'FINALIZADA'
+  )),
   observacoes TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -96,4 +115,54 @@ CREATE TABLE IF NOT EXISTS solicitacao_compra_historico (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id) ON DELETE CASCADE,
   FOREIGN KEY (usuario_id) REFERENCES USUARIOS (id)
+);
+
+CREATE TABLE IF NOT EXISTS cotacoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  solicitacao_id INTEGER NOT NULL,
+  numero_rodada INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'ABERTA' CHECK (status IN (
+    'ABERTA',
+    'EM_ANDAMENTO',
+    'EM_ANALISE',
+    'APROVADA',
+    'REPROVADA',
+    'CANCELADA',
+    'ENCERRADA'
+  )),
+  criado_por INTEGER,
+  data_abertura TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  data_encerramento TEXT,
+  observacoes TEXT,
+  UNIQUE (solicitacao_id, numero_rodada),
+  FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id) ON DELETE CASCADE,
+  FOREIGN KEY (criado_por) REFERENCES USUARIOS (id)
+);
+
+CREATE TABLE IF NOT EXISTS cotacao_fornecedores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cotacao_id INTEGER NOT NULL,
+  fornecedor_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDENTE' CHECK (status IN ('PENDENTE', 'ENVIADO', 'RESPONDIDO', 'RECUSADO', 'SEM_RESPOSTA')),
+  data_envio TEXT,
+  data_resposta TEXT,
+  prazo_entrega TEXT,
+  forma_pagamento TEXT,
+  observacoes TEXT,
+  UNIQUE (cotacao_id, fornecedor_id),
+  FOREIGN KEY (cotacao_id) REFERENCES cotacoes (id) ON DELETE CASCADE,
+  FOREIGN KEY (fornecedor_id) REFERENCES FORNECEDORES (id)
+);
+
+CREATE TABLE IF NOT EXISTS cotacao_fornecedor_itens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cotacao_fornecedor_id INTEGER NOT NULL,
+  solicitacao_item_id INTEGER NOT NULL,
+  quantidade REAL NOT NULL CHECK (quantidade > 0),
+  valor_unitario REAL CHECK (valor_unitario >= 0),
+  valor_total REAL GENERATED ALWAYS AS (quantidade * valor_unitario) STORED,
+  observacoes TEXT,
+  UNIQUE (cotacao_fornecedor_id, solicitacao_item_id),
+  FOREIGN KEY (cotacao_fornecedor_id) REFERENCES cotacao_fornecedores (id) ON DELETE CASCADE,
+  FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id)
 );

@@ -3,5 +3,5 @@ uploads/
 pdf/
 logs/
 .env
-convenções.md
+/convencoes.md
 src/db/database.sqlite
