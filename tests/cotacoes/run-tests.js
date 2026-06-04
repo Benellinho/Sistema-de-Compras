@@ -1,18 +1,38 @@
 import { getDatabase } from '../../src/db/connection.js';
 import { printError, printGroup, printSuccess, printSummary } from '../helpers/testLogger.js';
 import testBloquearFornecedorDuplicado from './cotacoes/bloquear-fornecedor-duplicado.test.js';
+import testBloquearFornecedorInexistente from './cotacoes/bloquear-fornecedor-inexistente.test.js';
+import testBloquearItemForaDaSolicitacao from './cotacoes/bloquear-item-fora-da-solicitacao.test.js';
 import testBloquearQuantidadeMaior from './cotacoes/bloquear-quantidade-maior.test.js';
+import testBloquearRespostaCotacaoEncerrada from './cotacoes/bloquear-resposta-cotacao-encerrada.test.js';
+import testBloquearSolicitacaoAprovadaSemItens from './cotacoes/bloquear-solicitacao-aprovada-sem-itens.test.js';
 import testBloquearSolicitacaoNaoAprovada from './cotacoes/bloquear-solicitacao-nao-aprovada.test.js';
+import testBloquearSolicitacaoReprovada from './cotacoes/bloquear-solicitacao-reprovada.test.js';
+import testBloquearValorNegativo from './cotacoes/bloquear-valor-negativo.test.js';
+import testBuscarDetalhesCotacao from './cotacoes/buscar-detalhes-cotacao.test.js';
 import testFluxoCotacao from './cotacoes/fluxo-cotacao.test.js';
+import testPermitirNovaRodadaCotacaoReprovada from './cotacoes/permitir-nova-rodada-cotacao-reprovada.test.js';
+import testRegistrarFornecedorSemValores from './cotacoes/registrar-fornecedor-sem-valores.test.js';
+import testRegistrarItemIndisponivel from './cotacoes/registrar-item-indisponivel.test.js';
 
 const tests = [
   {
     group: 'COTACOES',
     items: [
       ['fluxo cotacao', testFluxoCotacao],
+      ['buscar detalhes cotacao', testBuscarDetalhesCotacao],
       ['bloquear solicitacao nao aprovada', testBloquearSolicitacaoNaoAprovada],
+      ['bloquear solicitacao reprovada', testBloquearSolicitacaoReprovada],
+      ['bloquear solicitacao aprovada sem itens', testBloquearSolicitacaoAprovadaSemItens],
       ['bloquear fornecedor duplicado', testBloquearFornecedorDuplicado],
-      ['bloquear quantidade maior', testBloquearQuantidadeMaior]
+      ['bloquear fornecedor inexistente', testBloquearFornecedorInexistente],
+      ['bloquear quantidade maior', testBloquearQuantidadeMaior],
+      ['bloquear item fora da solicitacao', testBloquearItemForaDaSolicitacao],
+      ['bloquear valor negativo', testBloquearValorNegativo],
+      ['bloquear resposta cotacao encerrada', testBloquearRespostaCotacaoEncerrada],
+      ['permitir nova rodada cotacao reprovada', testPermitirNovaRodadaCotacaoReprovada],
+      ['registrar fornecedor sem valores', testRegistrarFornecedorSemValores],
+      ['registrar item indisponivel', testRegistrarItemIndisponivel]
     ]
   }
 ];
