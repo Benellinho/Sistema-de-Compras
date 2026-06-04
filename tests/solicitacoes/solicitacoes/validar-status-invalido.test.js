@@ -8,7 +8,7 @@ export default async function testValidarStatusInvalido() {
   const solicitacao = await createSolicitacaoFixture();
 
   await assert.rejects(
-    () => solicitacoesService.updateStatus(solicitacao.id, { status: 'EM_COTACAO' }),
+    () => solicitacoesService.updateStatus(solicitacao.id, { status: 'STATUS_INVALIDO' }),
     (error) => error.statusCode === 400 && error.message.includes('Status')
   );
 
