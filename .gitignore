@@ -6,3 +6,8 @@ logs/
 /convencoes.md
 documentacao/convencoes.md
 src/db/database.sqlite
+
+# Modelos privados/locais de documentos e PDFs
+src/templates/**/*.local.*
+src/config/**/*.local.*
+src/templates/marozal

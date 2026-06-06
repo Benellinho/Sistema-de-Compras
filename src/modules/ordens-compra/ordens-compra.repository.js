@@ -186,6 +186,26 @@ async function findCompraFornecedor(compraFornecedorId) {
   return findCompraFornecedorContext(database, compraFornecedorId);
 }
 
+async function findContatoFornecedor(fornecedorId, contatoId) {
+  const database = await getDatabase();
+
+  return database.get(
+    `
+      SELECT
+        id,
+        fornecedor_id,
+        nome,
+        cargo,
+        telefone,
+        email
+      FROM FORNECEDOR_CONTATOS
+      WHERE id = ?
+        AND fornecedor_id = ?
+    `,
+    [contatoId, fornecedorId]
+  );
+}
+
 async function findCompraById(compraId) {
   const database = await getDatabase();
 
@@ -257,6 +277,106 @@ async function findNextNumeroOcSequence() {
   `);
 
   return result?.next_id ?? 1;
+}
+
+async function createEnvio({ ordem_compra_id, usuario_id, email_destino, observacao = null }) {
+  const database = await getDatabase();
+  const result = await database.run(
+    `
+      INSERT INTO ordem_compra_envios (
+        ordem_compra_id,
+        usuario_id,
+        email_destino,
+        status,
+        observacao
+      )
+      VALUES (?, ?, ?, 'PENDENTE', ?)
+    `,
+    [ordem_compra_id, usuario_id, email_destino, observacao]
+  );
+
+  return findEnvioById(result.lastID);
+}
+
+async function marcarEnvioSucesso(envioId, { ordem, usuario_id, observacao = null }) {
+  const database = await getDatabase();
+
+  await database.exec('BEGIN');
+
+  try {
+    await database.run(
+      `
+        UPDATE ordem_compra_envios
+        SET status = 'ENVIADO',
+            enviado_em = CURRENT_TIMESTAMP,
+            observacao = COALESCE(?, observacao)
+        WHERE id = ?
+      `,
+      [observacao, envioId]
+    );
+
+    const envio = await findEnvioByIdInDatabase(database, envioId);
+    const statusSolicitacao = await updateSolicitacaoStatusEnvio(database, ordem.compra_id);
+
+    await insertHistorico(database, {
+      solicitacao_id: ordem.solicitacao_id,
+      usuario_id,
+      etapa: 'ORDEM_COMPRA',
+      acao: 'ENVIO_ORDEM_COMPRA',
+      status_anterior: statusSolicitacao.status_anterior,
+      status_novo: statusSolicitacao.status_novo,
+      observacao: `Ordem de compra ${ordem.numero_oc} enviada para ${envio.email_destino}.`
+    });
+
+    await database.exec('COMMIT');
+
+    return findEnvioById(envioId);
+  } catch (error) {
+    await database.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+async function marcarEnvioFalha(envioId, { ordem, usuario_id, observacao }) {
+  const database = await getDatabase();
+
+  await database.exec('BEGIN');
+
+  try {
+    await database.run(
+      `
+        UPDATE ordem_compra_envios
+        SET status = 'FALHA',
+            observacao = ?
+        WHERE id = ?
+      `,
+      [observacao, envioId]
+    );
+
+    const solicitacaoStatus = await findSolicitacaoStatusByCompraId(database, ordem.compra_id);
+
+    await insertHistorico(database, {
+      solicitacao_id: ordem.solicitacao_id,
+      usuario_id,
+      etapa: 'ORDEM_COMPRA',
+      acao: 'FALHA_ENVIO_ORDEM_COMPRA',
+      status_anterior: solicitacaoStatus?.status ?? null,
+      status_novo: solicitacaoStatus?.status ?? null,
+      observacao: `Falha ao enviar ordem de compra ${ordem.numero_oc}: ${observacao}`
+    });
+
+    await database.exec('COMMIT');
+
+    return findEnvioById(envioId);
+  } catch (error) {
+    await database.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+async function findEnvioById(id) {
+  const database = await getDatabase();
+  return findEnvioByIdInDatabase(database, id);
 }
 
 async function getResumoByCompraId(compraId) {
@@ -397,8 +517,8 @@ async function getResumoByCompraIdInDatabase(database, compraId) {
         COUNT(DISTINCT CASE WHEN oc.status = 'GERADA' THEN oc.id END) AS ocs_geradas,
         COUNT(DISTINCT CASE WHEN oc.status = 'CANCELADA' THEN oc.id END) AS ocs_canceladas,
         COUNT(DISTINCT CASE WHEN oc.status = 'SUBSTITUIDA' THEN oc.id END) AS ocs_substituidas,
-        COUNT(DISTINCT CASE WHEN oce.status = 'ENVIADO' THEN oc.id END) AS ocs_enviadas,
-        COUNT(DISTINCT CASE WHEN oce.status = 'FALHA' THEN oc.id END) AS ocs_com_falha_envio
+        COUNT(DISTINCT CASE WHEN oc.status = 'GERADA' AND oce.status = 'ENVIADO' THEN oc.id END) AS ocs_enviadas,
+        COUNT(DISTINCT CASE WHEN oc.status = 'GERADA' AND oce.status = 'FALHA' THEN oc.id END) AS ocs_com_falha_envio
       FROM compra_fornecedores cf
       LEFT JOIN ordens_compra oc ON oc.compra_fornecedor_id = cf.id
       LEFT JOIN ordem_compra_envios oce ON oce.ordem_compra_id = oc.id
@@ -444,6 +564,94 @@ async function getResumoByCompraIdInDatabase(database, compraId) {
   };
 }
 
+async function findEnvioByIdInDatabase(database, id) {
+  return database.get(
+    `
+      SELECT
+        oce.id,
+        oce.ordem_compra_id,
+        oce.usuario_id,
+        u.nome AS usuario_nome,
+        oce.email_destino,
+        oce.enviado_em,
+        oce.status,
+        oce.observacao,
+        oce.created_at
+      FROM ordem_compra_envios oce
+      LEFT JOIN USUARIOS u ON u.id = oce.usuario_id
+      WHERE oce.id = ?
+    `,
+    id
+  );
+}
+
+async function findSolicitacaoStatusByCompraId(database, compraId) {
+  return database.get(
+    `
+      SELECT
+        sc.id,
+        sc.status
+      FROM compras c
+      INNER JOIN solicitacoes_compra sc ON sc.id = c.solicitacao_id
+      WHERE c.id = ?
+    `,
+    compraId
+  );
+}
+
+async function updateSolicitacaoStatusEnvio(database, compraId) {
+  const compra = await database.get(
+    `
+      SELECT
+        c.solicitacao_id,
+        sc.status AS solicitacao_status
+      FROM compras c
+      INNER JOIN solicitacoes_compra sc ON sc.id = c.solicitacao_id
+      WHERE c.id = ?
+    `,
+    compraId
+  );
+  const resumo = await database.get(
+    `
+      SELECT
+        COUNT(DISTINCT cf.id) AS total_fornecedores_compra,
+        COUNT(DISTINCT CASE WHEN oc.status = 'GERADA' THEN oc.id END) AS ocs_geradas,
+        COUNT(DISTINCT CASE WHEN oc.status = 'GERADA' AND oce.status = 'ENVIADO' THEN oc.id END) AS ocs_enviadas
+      FROM compra_fornecedores cf
+      LEFT JOIN ordens_compra oc ON oc.compra_fornecedor_id = cf.id
+      LEFT JOIN ordem_compra_envios oce ON oce.ordem_compra_id = oc.id
+      WHERE cf.compra_id = ?
+    `,
+    compraId
+  );
+  const totalFornecedores = resumo?.total_fornecedores_compra ?? 0;
+  const ocsGeradas = resumo?.ocs_geradas ?? 0;
+  const ocsEnviadas = resumo?.ocs_enviadas ?? 0;
+  const statusNovo = totalFornecedores > 0 &&
+    ocsGeradas === totalFornecedores &&
+    ocsEnviadas === ocsGeradas
+    ? 'OC_ENVIADA'
+    : compra.solicitacao_status;
+
+  if (compra.solicitacao_status !== statusNovo) {
+    await database.run(
+      `
+        UPDATE solicitacoes_compra
+        SET status = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `,
+      [statusNovo, compra.solicitacao_id]
+    );
+  }
+
+  return {
+    solicitacao_id: compra.solicitacao_id,
+    status_anterior: compra.solicitacao_status,
+    status_novo: statusNovo
+  };
+}
+
 async function insertHistorico(database, data) {
   await database.run(
     `
@@ -476,10 +684,15 @@ export default {
   create,
   cancelar,
   findCompraFornecedor,
+  findContatoFornecedor,
   findCompraById,
   countItensByCompraFornecedorId,
   findActiveByCompraFornecedorId,
   numeroOcExists,
   findNextNumeroOcSequence,
+  createEnvio,
+  marcarEnvioSucesso,
+  marcarEnvioFalha,
+  findEnvioById,
   getResumoByCompraId
 };

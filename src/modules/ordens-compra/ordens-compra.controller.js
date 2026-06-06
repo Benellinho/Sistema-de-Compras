@@ -59,3 +59,24 @@ export async function getResumoOrdensCompra(req, res) {
     sendError(res, error);
   }
 }
+
+export async function getOrdemCompraPdf(req, res) {
+  try {
+    const pdf = await ordensCompraService.gerarPdfHtml(req.params.id);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `inline; filename="${pdf.filename}"`);
+    res.send(pdf.html);
+  } catch (error) {
+    sendError(res, error);
+  }
+}
+
+export async function enviarOrdemCompra(req, res) {
+  try {
+    const envio = await ordensCompraService.enviar(req.params.id, req.body);
+    res.status(201).json(envio);
+  } catch (error) {
+    sendError(res, error);
+  }
+}

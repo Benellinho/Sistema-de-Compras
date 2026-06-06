@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <title>Pedido de Compra {{numero_oc}}</title>
+    <style>
+      :root {
+        --border: #1f2933;
+        --muted: #5c6873;
+        --light: #f3f5f7;
+        --title: #111827;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #e7eaee;
+        color: #111827;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 12px;
+      }
+
+      .page {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        background: #fff;
+        padding: 14mm 12mm;
+      }
+
+      .header {
+        display: grid;
+        grid-template-columns: 1fr 48mm;
+        gap: 8mm;
+        border: 1px solid var(--border);
+      }
+
+      .company {
+        min-height: 30mm;
+        padding: 5mm;
+      }
+
+      .logo-box {
+        display: inline-flex;
+        width: 38mm;
+        height: 14mm;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #9aa4af;
+        color: var(--muted);
+        font-weight: 700;
+        letter-spacing: 0;
+        margin-bottom: 4mm;
+      }
+
+      .company-name {
+        color: var(--title);
+        font-size: 16px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .company-line {
+        margin-top: 2px;
+        color: var(--muted);
+      }
+
+      .order-box {
+        border-left: 1px solid var(--border);
+      }
+
+      .order-title {
+        padding: 3mm;
+        border-bottom: 1px solid var(--border);
+        background: var(--light);
+        font-size: 15px;
+        font-weight: 700;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .order-info {
+        padding: 4mm;
+      }
+
+      .order-number {
+        display: block;
+        margin-bottom: 3mm;
+        font-size: 18px;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .section {
+        margin-top: 5mm;
+        border: 1px solid var(--border);
+      }
+
+      .section-title {
+        padding: 2mm 3mm;
+        border-bottom: 1px solid var(--border);
+        background: var(--light);
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .cell {
+        min-height: 9mm;
+        padding: 2.5mm 3mm;
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid #cbd2d9;
+      }
+
+      .cell:nth-child(2n) {
+        border-right: 0;
+      }
+
+      .cell-label {
+        display: block;
+        margin-bottom: 1mm;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .cell-value {
+        font-weight: 600;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 2.2mm 2mm;
+        border-bottom: 1px solid #cbd2d9;
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--light);
+        font-size: 10px;
+        text-align: left;
+        text-transform: uppercase;
+      }
+
+      .text-right {
+        text-align: right;
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      .totals {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 4mm;
+      }
+
+      .total-box {
+        width: 62mm;
+        border: 1px solid var(--border);
+      }
+
+      .total-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 3mm;
+      }
+
+      .total-row strong {
+        font-size: 14px;
+      }
+
+      .notes {
+        min-height: 24mm;
+        padding: 3mm;
+        line-height: 1.45;
+      }
+
+      .signatures {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18mm;
+        margin-top: 16mm;
+      }
+
+      .signature-line {
+        padding-top: 4mm;
+        border-top: 1px solid var(--border);
+        text-align: center;
+        color: var(--muted);
+      }
+
+      .footer {
+        margin-top: 9mm;
+        color: var(--muted);
+        font-size: 10px;
+        text-align: center;
+      }
+
+      @media print {
+        body {
+          background: #fff;
+        }
+
+        .page {
+          width: auto;
+          min-height: auto;
+          margin: 0;
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <section class="company">
+          <div class="logo-box">LOGO</div>
+          <div class="company-name">{{empresa_nome}}</div>
+          <div class="company-line">{{empresa_documento}}</div>
+          <div class="company-line">{{empresa_endereco}}</div>
+          <div class="company-line">{{empresa_contato}}</div>
+        </section>
+
+        <aside class="order-box">
+          <div class="order-title">Pedido de Compra</div>
+          <div class="order-info">
+            <span class="order-number">{{numero_oc}}</span>
+            <div><strong>Emissao:</strong> {{data_emissao}}</div>
+            <div><strong>Compra:</strong> {{compra_id}}</div>
+            <div><strong>Solicitacao:</strong> {{solicitacao_id}}</div>
+          </div>
+        </aside>
+      </header>
+
+      <section class="section">
+        <div class="section-title">Fornecedor</div>
+        <div class="grid">
+          <div class="cell">
+            <span class="cell-label">Razao social</span>
+            <span class="cell-value">{{fornecedor_razao_social}}</span>
+          </div>
+          <div class="cell">
+            <span class="cell-label">Nome fantasia</span>
+            <span class="cell-value">{{fornecedor_nome_fantasia}}</span>
+          </div>
+          <div class="cell">
+            <span class="cell-label">CNPJ</span>
+            <span class="cell-value">{{fornecedor_cnpj}}</span>
+          </div>
+          <div class="cell">
+            <span class="cell-label">Status da OC</span>
+            <span class="cell-value">{{status}}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Itens</div>
+        <table>
+          <thead>
+            <tr>
+              <th class="text-center">Item</th>
+              <th>Codigo</th>
+              <th>Descricao</th>
+              <th class="text-center">Un.</th>
+              <th class="text-right">Qtd.</th>
+              <th class="text-right">Valor Unit.</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{itens_linhas}}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="totals">
+        <div class="total-box">
+          <div class="total-row">
+            <span>Total geral</span>
+            <strong>{{total_geral}}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Observacoes</div>
+        <div class="notes">{{observacoes}}</div>
+      </section>
+
+      <section class="signatures">
+        <div class="signature-line">Comprador / Responsavel</div>
+        <div class="signature-line">Fornecedor</div>
+      </section>
+
+      <footer class="footer">
+        Documento gerado pelo Sistema de Compras. Modelo generico sem dados reais da empresa.
+      </footer>
+    </main>
+  </body>
+</html>

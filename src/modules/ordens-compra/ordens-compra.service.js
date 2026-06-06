@@ -5,9 +5,18 @@ import {
   required,
   validateUsuarioExiste
 } from '../cotacoes/cotacoes/cotacoes.service.js';
+import envioAdapterPadrao from './ordens-compra-envio.adapter.js';
 import ordensCompraRepository from './ordens-compra.repository.js';
+import ordensCompraPdfService from './pdf/ordens-compra-pdf.service.js';
 
 const statusValidos = new Set(['GERADA', 'CANCELADA', 'SUBSTITUIDA']);
+let envioAdapter = envioAdapterPadrao;
+
+function createEnvioError(message) {
+  const error = new Error(message);
+  error.statusCode = 502;
+  return error;
+}
 
 async function findOne(id) {
   return validateOrdemExiste(id);
@@ -112,6 +121,67 @@ async function getResumoByCompraId(compraId) {
   return ordensCompraRepository.getResumoByCompraId(compraId);
 }
 
+async function gerarPdfHtml(id) {
+  const ordem = await validateOrdemExiste(id);
+  const html = await ordensCompraPdfService.renderHtml(ordem);
+
+  return {
+    filename: `${ordem.numero_oc}.html`,
+    html
+  };
+}
+
+async function enviar(id, data = {}) {
+  const ordem = await validateOrdemExiste(id);
+
+  if (ordem.status !== 'GERADA') {
+    throw createValidationError('Apenas ordem de compra gerada pode ser enviada.');
+  }
+
+  if (!required(data?.usuario_id)) {
+    throw createValidationError('Usuario e obrigatorio para enviar ordem de compra.');
+  }
+
+  if (!required(data?.contato_id)) {
+    throw createValidationError('Contato do fornecedor e obrigatorio para enviar ordem de compra.');
+  }
+
+  await validateUsuarioExiste(data.usuario_id);
+  const contato = await validateContatoFornecedor(ordem.fornecedor_id, data.contato_id);
+  const envio = await ordensCompraRepository.createEnvio({
+    ordem_compra_id: ordem.id,
+    usuario_id: data.usuario_id,
+    email_destino: contato.email,
+    observacao: data?.observacao ?? null
+  });
+  const pdfHtml = await ordensCompraPdfService.renderHtml(ordem);
+
+  try {
+    await envioAdapter.enviarOrdemCompra({
+      ordem,
+      contato,
+      envio,
+      pdfHtml
+    });
+
+    return ordensCompraRepository.marcarEnvioSucesso(envio.id, {
+      ordem,
+      usuario_id: data.usuario_id,
+      observacao: data?.observacao ?? null
+    });
+  } catch (error) {
+    const observacaoFalha = error?.message || 'Falha desconhecida no envio da ordem de compra.';
+
+    await ordensCompraRepository.marcarEnvioFalha(envio.id, {
+      ordem,
+      usuario_id: data.usuario_id,
+      observacao: observacaoFalha
+    });
+
+    throw createEnvioError(`Falha ao enviar ordem de compra: ${observacaoFalha}`);
+  }
+}
+
 async function validateOrdemExiste(id) {
   const ordem = await ordensCompraRepository.findById(id);
 
@@ -120,6 +190,20 @@ async function validateOrdemExiste(id) {
   }
 
   return ordem;
+}
+
+async function validateContatoFornecedor(fornecedorId, contatoId) {
+  const contato = await ordensCompraRepository.findContatoFornecedor(fornecedorId, contatoId);
+
+  if (!contato) {
+    throw createNotFoundError('Contato nao encontrado para o fornecedor da ordem de compra.');
+  }
+
+  if (!required(contato.email)) {
+    throw createValidationError('Contato do fornecedor precisa possuir email.');
+  }
+
+  return contato;
 }
 
 async function validateCompraFornecedorElegivel(compraFornecedorId) {
@@ -167,11 +251,23 @@ async function gerarNumeroOc() {
   throw createConflictError('Nao foi possivel gerar numero de OC unico.');
 }
 
+function setEnvioAdapter(adapter) {
+  envioAdapter = adapter || envioAdapterPadrao;
+}
+
+function resetEnvioAdapter() {
+  envioAdapter = envioAdapterPadrao;
+}
+
 export default {
   list,
   findOne,
   create,
   cancelar,
   gerarSubstituta,
-  getResumoByCompraId
+  getResumoByCompraId,
+  gerarPdfHtml,
+  enviar,
+  setEnvioAdapter,
+  resetEnvioAdapter
 };
