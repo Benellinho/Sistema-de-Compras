@@ -186,6 +186,36 @@ Legenda:
 
 ---
 
+# Compras
+
+## Runner e helpers
+
+| Arquivo | Função | Cobertura |
+|---|---|---|
+| `tests/compras/run-tests.js` | Executa todos os testes de compras. | Runner/helper |
+| `tests/compras/helpers/test-utils.js` | Cria fixtures de cotação aprovada com fornecedor respondido para montagem da compra. | Runner/helper |
+
+## Fluxo de compra
+
+| Arquivo | Função | Cobertura |
+|---|---|---|
+| `tests/compras/compras/criar-compra.test.js` | Testa criação de compra a partir de cotação aprovada. | Regra de negócio, Banco |
+| `tests/compras/compras/bloquear-criacao-invalida.test.js` | Testa bloqueio de compra sem cotação e com cotação inexistente. | Regra de negócio |
+| `tests/compras/compras/bloquear-cotacao-nao-aprovada.test.js` | Testa bloqueio de compra quando a cotação ainda não está aprovada. | Regra de negócio |
+| `tests/compras/compras/bloquear-segunda-compra.test.js` | Testa bloqueio de segunda compra para a mesma cotação. | Regra de negócio, Banco |
+| `tests/compras/compras/bloquear-fornecedor-fora-cotacao.test.js` | Testa bloqueio de fornecedor que não participou da cotação da compra. | Regra de negócio |
+| `tests/compras/compras/bloquear-item-fora-da-solicitacao.test.js` | Testa bloqueio de item que não pertence à solicitação da compra. | Regra de negócio |
+| `tests/compras/compras/bloquear-item-indisponivel.test.js` | Testa bloqueio de compra de item marcado como indisponível na cotação. | Regra de negócio, Banco |
+| `tests/compras/compras/validar-justificativas.test.js` | Testa `OUTRO` sem texto complementar e justificativa duplicada. | Regra de negócio |
+| `tests/compras/compras/sinalizar-inconsistencia-quantidade.test.js` | Testa compra dividida entre fornecedores e sinalização de `inconsistencia_quantidade` quando a quantidade comprada ultrapassa a solicitada. | Regra de negócio, Banco |
+| `tests/compras/compras/bloquear-aprovacao-compra-vazia.test.js` | Testa bloqueio de envio para aprovação quando a compra não tem fornecedor/item. | Regra de negócio |
+| `tests/compras/compras/aprovar-compra.test.js` | Testa envio para aprovação e aprovação final da compra completa. | Regra de negócio, Banco |
+| `tests/compras/compras/cancelar-compra.test.js` | Testa cancelamento de compra com observação obrigatória por imprevisto operacional/fornecedor. | Regra de negócio, Banco |
+| `tests/compras/compras/bloquear-segunda-decisao.test.js` | Testa bloqueio de nova decisão após aprovação final da compra. | Regra de negócio, Banco |
+| `tests/compras/compras/nao-gerar-ordem-compra.test.js` | Testa que a aprovação da compra não gera ordem de compra na Fase 7. | Regra de negócio, Banco |
+
+---
+
 # Infraestrutura de teste
 
 | Arquivo | Função | Cobertura |
