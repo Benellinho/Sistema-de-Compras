@@ -35,6 +35,7 @@ export async function initializeDatabase() {
   await ensureSolicitacoesSchema(database);
   await ensureSolicitacoesAprovacoesSchema(database);
   await ensureCotacoesSchema(database);
+  await ensureComprasSchema(database);
 }
 
 async function ensureFornecedorColumns(database) {
@@ -275,7 +276,12 @@ async function ensureSolicitacoesCompraStatus(database) {
       AND name = 'solicitacoes_compra'
   `);
 
-  if (!table?.sql || table.sql.includes('EM_COTACAO') && table.sql.includes('RECEBIDA_TOTAL')) {
+  if (
+    !table?.sql ||
+    table.sql.includes('EM_COTACAO') &&
+      table.sql.includes('RECEBIDA_TOTAL') &&
+      !table.sql.includes('COMPRA_REPROVADA')
+  ) {
     return;
   }
 
@@ -297,7 +303,6 @@ async function ensureSolicitacoesCompraStatus(database) {
           'EM_ESCOLHA_FORNECEDOR',
           'AGUARDANDO_APROVACAO_COMPRA',
           'COMPRA_APROVADA',
-          'COMPRA_REPROVADA',
           'OC_GERADA',
           'OC_ENVIADA',
           'AGUARDANDO_RECEBIMENTO',
@@ -331,6 +336,220 @@ async function ensureSolicitacoesCompraStatus(database) {
 
       DROP TABLE solicitacoes_compra;
       ALTER TABLE solicitacoes_compra_nova RENAME TO solicitacoes_compra;
+    `);
+  } finally {
+    await database.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+async function ensureComprasSchema(database) {
+  await database.exec(`
+    CREATE TABLE IF NOT EXISTS compras (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      solicitacao_id INTEGER NOT NULL,
+      cotacao_id INTEGER,
+      status TEXT NOT NULL DEFAULT 'EM_MONTAGEM' CHECK (status IN (
+        'EM_MONTAGEM',
+        'AGUARDANDO_APROVACAO',
+        'APROVADA',
+        'CANCELADA'
+      )),
+      criado_por INTEGER,
+      data_compra TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      observacoes TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id),
+      FOREIGN KEY (cotacao_id) REFERENCES cotacoes (id),
+      FOREIGN KEY (criado_por) REFERENCES USUARIOS (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS compra_fornecedores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      compra_id INTEGER NOT NULL,
+      fornecedor_id INTEGER NOT NULL,
+      prazo_entrega TEXT,
+      forma_pagamento TEXT,
+      justificativa_texto TEXT,
+      orcamento_anexo_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (compra_id, fornecedor_id),
+      FOREIGN KEY (compra_id) REFERENCES compras (id) ON DELETE CASCADE,
+      FOREIGN KEY (fornecedor_id) REFERENCES FORNECEDORES (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS compra_fornecedor_itens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      compra_fornecedor_id INTEGER NOT NULL,
+      solicitacao_item_id INTEGER NOT NULL,
+      quantidade_pedida REAL NOT NULL CHECK (quantidade_pedida > 0),
+      quantidade_recebida REAL NOT NULL DEFAULT 0 CHECK (quantidade_recebida >= 0),
+      valor_unitario REAL NOT NULL CHECK (valor_unitario >= 0),
+      valor_total REAL GENERATED ALWAYS AS (quantidade_pedida * valor_unitario) STORED,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT chk_compra_item_recebido_limite
+        CHECK (quantidade_recebida <= quantidade_pedida),
+      UNIQUE (compra_fornecedor_id, solicitacao_item_id),
+      FOREIGN KEY (compra_fornecedor_id) REFERENCES compra_fornecedores (id) ON DELETE CASCADE,
+      FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS compra_fornecedor_justificativas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      compra_fornecedor_id INTEGER NOT NULL,
+      justificativa TEXT NOT NULL CHECK (
+        justificativa IN (
+          'MENOR_PRECO',
+          'PRAZO',
+          'PECA_ORIGINAL',
+          'GARANTIA',
+          'QUALIDADE',
+          'DISPONIBILIDADE',
+          'OUTRO'
+        )
+      ),
+      UNIQUE (compra_fornecedor_id, justificativa),
+      FOREIGN KEY (compra_fornecedor_id) REFERENCES compra_fornecedores (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS compra_aprovacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      compra_id INTEGER NOT NULL,
+      aprovador_id INTEGER NOT NULL,
+      decisao TEXT NOT NULL CHECK (decisao IN ('APROVADO', 'CANCELADA')),
+      observacao TEXT,
+      data_decisao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (compra_id) REFERENCES compras (id) ON DELETE CASCADE,
+      FOREIGN KEY (aprovador_id) REFERENCES USUARIOS (id)
+    );
+  `);
+
+  await ensureComprasStatusSchema(database);
+  await ensureCompraAprovacoesCanceladaSchema(database);
+}
+
+async function ensureComprasStatusSchema(database) {
+  const table = await database.get(`
+    SELECT sql
+    FROM sqlite_master
+    WHERE type = 'table'
+      AND name = 'compras'
+  `);
+
+  if (!table?.sql || !table.sql.includes('REPROVADA')) {
+    return;
+  }
+
+  await database.exec('PRAGMA foreign_keys = OFF');
+
+  try {
+    await database.exec(`
+      CREATE TABLE compras_nova (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        solicitacao_id INTEGER NOT NULL,
+        cotacao_id INTEGER,
+        status TEXT NOT NULL DEFAULT 'EM_MONTAGEM' CHECK (status IN (
+          'EM_MONTAGEM',
+          'AGUARDANDO_APROVACAO',
+          'APROVADA',
+          'CANCELADA'
+        )),
+        criado_por INTEGER,
+        data_compra TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        observacoes TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id),
+        FOREIGN KEY (cotacao_id) REFERENCES cotacoes (id),
+        FOREIGN KEY (criado_por) REFERENCES USUARIOS (id)
+      );
+
+      INSERT INTO compras_nova (
+        id,
+        solicitacao_id,
+        cotacao_id,
+        CASE
+          WHEN status = 'COMPRA_REPROVADA' THEN 'CANCELADA'
+          ELSE status
+        END,
+        criado_por,
+        data_compra,
+        observacoes,
+        created_at,
+        updated_at
+      )
+      SELECT
+        id,
+        solicitacao_id,
+        cotacao_id,
+        CASE
+          WHEN status = 'REPROVADA' THEN 'CANCELADA'
+          ELSE status
+        END,
+        criado_por,
+        data_compra,
+        observacoes,
+        created_at,
+        updated_at
+      FROM compras;
+
+      DROP TABLE compras;
+      ALTER TABLE compras_nova RENAME TO compras;
+    `);
+  } finally {
+    await database.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+async function ensureCompraAprovacoesCanceladaSchema(database) {
+  const table = await database.get(`
+    SELECT sql
+    FROM sqlite_master
+    WHERE type = 'table'
+      AND name = 'compra_aprovacoes'
+  `);
+
+  if (!table?.sql || table.sql.includes('CANCELADA') && !table.sql.includes('RECUSADO')) {
+    return;
+  }
+
+  await database.exec('PRAGMA foreign_keys = OFF');
+
+  try {
+    await database.exec(`
+      CREATE TABLE compra_aprovacoes_nova (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        compra_id INTEGER NOT NULL,
+        aprovador_id INTEGER NOT NULL,
+        decisao TEXT NOT NULL CHECK (decisao IN ('APROVADO', 'CANCELADA')),
+        observacao TEXT,
+        data_decisao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (compra_id) REFERENCES compras (id) ON DELETE CASCADE,
+        FOREIGN KEY (aprovador_id) REFERENCES USUARIOS (id)
+      );
+
+      INSERT INTO compra_aprovacoes_nova (
+        id,
+        compra_id,
+        aprovador_id,
+        decisao,
+        observacao,
+        data_decisao
+      )
+      SELECT
+        id,
+        compra_id,
+        aprovador_id,
+        CASE
+          WHEN decisao = 'APROVADO' THEN 'APROVADO'
+          ELSE 'CANCELADA'
+        END,
+        observacao,
+        data_decisao
+      FROM compra_aprovacoes;
+
+      DROP TABLE compra_aprovacoes;
+      ALTER TABLE compra_aprovacoes_nova RENAME TO compra_aprovacoes;
     `);
   } finally {
     await database.exec('PRAGMA foreign_keys = ON');
