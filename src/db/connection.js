@@ -36,6 +36,7 @@ export async function initializeDatabase() {
   await ensureSolicitacoesAprovacoesSchema(database);
   await ensureCotacoesSchema(database);
   await ensureComprasSchema(database);
+  await ensureOrdensCompraSchema(database);
 }
 
 async function ensureFornecedorColumns(database) {
@@ -554,4 +555,135 @@ async function ensureCompraAprovacoesCanceladaSchema(database) {
   } finally {
     await database.exec('PRAGMA foreign_keys = ON');
   }
+}
+
+async function ensureOrdensCompraSchema(database) {
+  await ensureOrdensCompraTable(database);
+  await ensureOrdemCompraEnviosTable(database);
+
+  await database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ordens_compra_compra_fornecedor_id
+      ON ordens_compra (compra_fornecedor_id);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ordens_compra_compra_fornecedor_ativa
+      ON ordens_compra (compra_fornecedor_id)
+      WHERE status = 'GERADA';
+
+    CREATE INDEX IF NOT EXISTS idx_ordem_compra_envios_ordem_compra_id
+      ON ordem_compra_envios (ordem_compra_id);
+  `);
+}
+
+async function ensureOrdensCompraTable(database) {
+  const table = await database.get(`
+    SELECT sql
+    FROM sqlite_master
+    WHERE type = 'table'
+      AND name = 'ordens_compra'
+  `);
+
+  if (!table?.sql) {
+    await database.exec(`
+      CREATE TABLE ordens_compra (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero_oc TEXT NOT NULL UNIQUE,
+        compra_fornecedor_id INTEGER NOT NULL,
+        ordem_substituida_id INTEGER,
+        data_emissao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        status TEXT NOT NULL DEFAULT 'GERADA' CHECK (status IN ('GERADA', 'CANCELADA', 'SUBSTITUIDA')),
+        cancelada_em TEXT,
+        cancelada_por INTEGER,
+        motivo_cancelamento TEXT,
+        observacoes TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (compra_fornecedor_id) REFERENCES compra_fornecedores (id) ON DELETE CASCADE,
+        FOREIGN KEY (ordem_substituida_id) REFERENCES ordens_compra (id),
+        FOREIGN KEY (cancelada_por) REFERENCES USUARIOS (id)
+      );
+    `);
+    return;
+  }
+
+  if (table.sql.includes('SUBSTITUIDA') && !table.sql.includes('pdf_caminho')) {
+    return;
+  }
+
+  await database.exec('PRAGMA foreign_keys = OFF');
+
+  try {
+    await database.exec(`
+      CREATE TABLE ordens_compra_nova (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero_oc TEXT NOT NULL UNIQUE,
+        compra_fornecedor_id INTEGER NOT NULL,
+        ordem_substituida_id INTEGER,
+        data_emissao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        status TEXT NOT NULL DEFAULT 'GERADA' CHECK (status IN ('GERADA', 'CANCELADA', 'SUBSTITUIDA')),
+        cancelada_em TEXT,
+        cancelada_por INTEGER,
+        motivo_cancelamento TEXT,
+        observacoes TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (compra_fornecedor_id) REFERENCES compra_fornecedores (id) ON DELETE CASCADE,
+        FOREIGN KEY (ordem_substituida_id) REFERENCES ordens_compra (id),
+        FOREIGN KEY (cancelada_por) REFERENCES USUARIOS (id)
+      );
+
+      INSERT INTO ordens_compra_nova (
+        id,
+        numero_oc,
+        compra_fornecedor_id,
+        ordem_substituida_id,
+        data_emissao,
+        status,
+        cancelada_em,
+        cancelada_por,
+        motivo_cancelamento,
+        observacoes,
+        created_at,
+        updated_at
+      )
+      SELECT
+        id,
+        numero_oc,
+        compra_fornecedor_id,
+        NULL,
+        COALESCE(data_emissao, CURRENT_TIMESTAMP),
+        CASE
+          WHEN status = 'CANCELADA' THEN 'CANCELADA'
+          ELSE 'GERADA'
+        END,
+        NULL,
+        NULL,
+        NULL,
+        observacoes,
+        COALESCE(data_emissao, CURRENT_TIMESTAMP),
+        CURRENT_TIMESTAMP
+      FROM ordens_compra;
+
+      DROP TABLE ordens_compra;
+      ALTER TABLE ordens_compra_nova RENAME TO ordens_compra;
+    `);
+  } finally {
+    await database.exec('PRAGMA foreign_keys = ON');
+  }
+}
+
+async function ensureOrdemCompraEnviosTable(database) {
+  await database.exec(`
+    CREATE TABLE IF NOT EXISTS ordem_compra_envios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ordem_compra_id INTEGER NOT NULL,
+      usuario_id INTEGER,
+      email_destino TEXT NOT NULL,
+      enviado_em TEXT,
+      status TEXT NOT NULL DEFAULT 'PENDENTE' CHECK (status IN ('PENDENTE', 'ENVIADO', 'FALHA')),
+      observacao TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (ordem_compra_id) REFERENCES ordens_compra (id) ON DELETE CASCADE,
+      FOREIGN KEY (usuario_id) REFERENCES USUARIOS (id)
+    );
+  `);
 }

@@ -4,6 +4,7 @@ import cotacoesRoutes from './modules/cotacoes/cotacoes/cotacoes.routes.js';
 import fornecedoresRoutes from './modules/fornecedores/fornecedores/fornecedores.routes.js';
 import gruposRoutes from './modules/itens/grupos/grupos.routes.js';
 import itensRoutes from './modules/itens/itens/itens.routes.js';
+import ordensCompraRoutes from './modules/ordens-compra/ordens-compra.routes.js';
 import solicitacoesRoutes from './modules/solicitacoes/solicitacoes/solicitacoes.routes.js';
 import usuariosRoutes from './modules/usuarios/usuarios.routes.js';
 
@@ -20,6 +21,7 @@ app.use('/compras', comprasRoutes);
 app.use('/fornecedores', fornecedoresRoutes);
 app.use('/grupos', gruposRoutes);
 app.use('/itens', itensRoutes);
+app.use('/ordens-compra', ordensCompraRoutes);
 app.use('/solicitacoes', solicitacoesRoutes);
 app.use('/usuarios', usuariosRoutes);
 

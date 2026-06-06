@@ -354,23 +354,39 @@ CREATE TABLE IF NOT EXISTS ordens_compra (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numero_oc TEXT NOT NULL UNIQUE,
     compra_fornecedor_id INTEGER NOT NULL,
+    ordem_substituida_id INTEGER,
     data_emissao TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status TEXT NOT NULL DEFAULT 'GERADA'
         CHECK (
             status IN (
                 'GERADA',
-                'ENVIADA',
-                'AGUARDANDO_RECEBIMENTO',
-                'RECEBIDA_PARCIAL',
-                'RECEBIDA_TOTAL',
-                'CANCELADA'
+                'CANCELADA',
+                'SUBSTITUIDA'
             )
         ),
-    pdf_caminho TEXT,
-    enviada_em TEXT,
-    enviado_para_email TEXT,
+    cancelada_em TEXT,
+    cancelada_por INTEGER,
+    motivo_cancelamento TEXT,
     observacoes TEXT,
-    FOREIGN KEY (compra_fornecedor_id) REFERENCES compra_fornecedores(id)
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (compra_fornecedor_id) REFERENCES compra_fornecedores(id) ON DELETE CASCADE,
+    FOREIGN KEY (ordem_substituida_id) REFERENCES ordens_compra(id),
+    FOREIGN KEY (cancelada_por) REFERENCES usuarios(id)
+);
+
+CREATE TABLE IF NOT EXISTS ordem_compra_envios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ordem_compra_id INTEGER NOT NULL,
+    usuario_id INTEGER,
+    email_destino TEXT NOT NULL,
+    enviado_em TEXT,
+    status TEXT NOT NULL DEFAULT 'PENDENTE'
+        CHECK (status IN ('PENDENTE', 'ENVIADO', 'FALHA')),
+    observacao TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ordem_compra_id) REFERENCES ordens_compra(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );
 
 -- ============================================================
@@ -415,3 +431,10 @@ CREATE INDEX IF NOT EXISTS idx_compra_fornecedor_itens_compra_fornecedor_id
 
 CREATE INDEX IF NOT EXISTS idx_ordens_compra_compra_fornecedor_id
     ON ordens_compra(compra_fornecedor_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ordens_compra_compra_fornecedor_ativa
+    ON ordens_compra(compra_fornecedor_id)
+    WHERE status = 'GERADA';
+
+CREATE INDEX IF NOT EXISTS idx_ordem_compra_envios_ordem_compra_id
+    ON ordem_compra_envios(ordem_compra_id);

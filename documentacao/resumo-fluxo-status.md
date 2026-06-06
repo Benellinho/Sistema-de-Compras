@@ -15,8 +15,7 @@ Cadastro base
   -> Compra
   -> Aprovação da compra
   -> Ordem de compra
-  -> Recebimento
-  -> Finalização
+  -> PDF e envio da OC
 ```
 
 ---
@@ -44,7 +43,7 @@ CANCELADA
 FINALIZADA
 ```
 
-Status adicionados com aprovação e fases futuras:
+Status adicionados com aprovação, cotação, compra e ordem de compra:
 
 ```txt
 APROVADA
@@ -58,6 +57,11 @@ AGUARDANDO_APROVACAO_COMPRA
 COMPRA_APROVADA
 OC_GERADA
 OC_ENVIADA
+```
+
+Status reservados para recebimento/estoque futuro:
+
+```txt
 AGUARDANDO_RECEBIMENTO
 RECEBIDA_PARCIAL
 RECEBIDA_TOTAL
@@ -158,36 +162,47 @@ CANCELADA
 
 ## 8. Ordem de compra
 
-Após aprovação da compra, o sistema gera a ordem de compra para envio ao fornecedor.
+Após aprovação da compra, o sistema permite gerar a ordem de compra por rota explícita.
+
+A geração não é automática nesta fase. A automação da geração e do envio depende de confirmação futura com o cliente.
 
 Status da ordem de compra:
 
 ```txt
 GERADA
-ENVIADA
+CANCELADA
+SUBSTITUIDA
+```
+
+Controle esperado:
+
+- uma OC por fornecedor da compra;
+- bloqueio de OC ativa duplicada;
+- cancelamento de OC;
+- geração de OC substituta após cancelamento;
+- resumo de OCs geradas, pendentes, canceladas e substituídas por compra.
+
+## 9. PDF e envio da OC
+
+A fase seguinte fica dedicada à geração do PDF e ao envio da OC ao contato do fornecedor.
+
+Resultados previstos:
+
+- PDF gerado;
+- PDF disponível para download;
+- OC enviada ao contato do fornecedor;
+- tentativa de envio registrada em histórico próprio.
+
+## 10. Recebimento e estoque futuro
+
+Recebimento, entrada em estoque e quantidades recebidas saíram do planejamento imediato e ficam reservados para fase futura, se confirmados.
+
+Status reservados:
+
+```txt
 AGUARDANDO_RECEBIMENTO
 RECEBIDA_PARCIAL
 RECEBIDA_TOTAL
-CANCELADA
-```
-
-## 9. Recebimento
-
-O recebimento atualiza as quantidades entregues.
-
-Resultados possíveis:
-
-- `RECEBIDA_PARCIAL`: parte dos itens foi entregue.
-- `RECEBIDA_TOTAL`: todos os itens foram entregues.
-
-## 10. Finalização
-
-O processo termina quando a solicitação foi atendida ou encerrada.
-
-Status final esperado:
-
-```txt
-FINALIZADA
 ```
 
 ---
@@ -205,10 +220,10 @@ Compra:
 EM_MONTAGEM -> AGUARDANDO_APROVACAO -> APROVADA
 
 Ordem de compra:
-GERADA -> ENVIADA -> AGUARDANDO_RECEBIMENTO -> RECEBIDA_TOTAL
+GERADA
 
-Encerramento:
-RECEBIDA_TOTAL -> FINALIZADA
+PDF e envio:
+PDF_GERADO -> ENVIADA
 ```
 
 Fluxos alternativos:
@@ -231,5 +246,5 @@ EM_MONTAGEM -> CANCELADA
 
 Ordem de compra:
 GERADA -> CANCELADA
-AGUARDANDO_RECEBIMENTO -> RECEBIDA_PARCIAL
+CANCELADA -> SUBSTITUIDA -> GERADA
 ```
