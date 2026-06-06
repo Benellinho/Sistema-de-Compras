@@ -760,7 +760,9 @@ GET /compras/:id
 
 ## Objetivo
 
-Gerar documento oficial de compra.
+Registrar e controlar a ordem de compra como etapa explicita apos a aprovacao da compra.
+
+Nesta fase a OC ainda nao gera PDF e nao e enviada automaticamente ao fornecedor.
 
 ## Tabelas
 
@@ -770,41 +772,67 @@ Gerar documento oficial de compra.
 * numero_oc
 * compra_fornecedor_id
 * status
-* pdf_caminho
+* ordem_substituida_id
+* observacoes
 
 ## Endpoints
 
 ```http
 POST /ordens-compra
-GET /ordens-compra/:id/pdf
+GET /ordens-compra
+GET /ordens-compra/:id
+GET /ordens-compra?compra_id=1
+GET /ordens-compra?solicitacao_id=1
+GET /compras/:id/ordens-compra-resumo
+PATCH /ordens-compra/:id/cancelamento
+POST /ordens-compra/:id/substituta
 ```
 
 ## Funções
 
-* Gerar PDF
-* Download da OC
-* Histórico de envio
-* Registro de envio ao fornecedor
+* Gerar OC por fornecedor da compra
+* Controlar OCs geradas por compra
+* Bloquear OC ativa duplicada
+* Cancelar OC
+* Gerar OC substituta apos cancelamento
+* Registrar historico da etapa de ordem de compra
+* Exibir resumo de OCs para controle do usuario
 
 ---
 
-# FASE 9 — Estoque
+# FASE 9 — PDF e Envio da Ordem de Compra
 
 ## Objetivo
 
-Registrar recebimento dos itens.
+Gerar o PDF da ordem de compra e enviar a OC ao contato do fornecedor.
+
+## Tabelas
+
+### ordem_compra_envios
+
+* id
+* ordem_compra_id
+* usuario_id
+* email_destino
+* enviado_em
+* status
+* observacao
 
 ## Implementações
 
-* Recebimento parcial
-* Recebimento total
-* Entrada em estoque
+* Geracao de PDF da OC
+* Download do PDF da OC
+* Envio da OC ao contato do fornecedor
+* Historico de tentativas de envio
+* Registro de sucesso ou falha no envio
 
 ## Funções
 
-* Atualizar quantidade recebida
-* Registrar movimentação
-* Atualizar status da compra
+* Gerar PDF
+* Baixar PDF
+* Enviar OC ao contato do fornecedor
+* Registrar envio em `ordem_compra_envios`
+* Atualizar status de PDF e envio da OC
 
 ---
 
@@ -817,6 +845,9 @@ Registrar recebimento dos itens.
 * Controle de usuários
 * Aprovação e reprovação parcial de solicitações
 * Compra parcial com divisão de itens e quantidades entre fornecedores
+* Recebimento parcial e total
+* Entrada em estoque
+* Controle de estoque
 * Dashboard
 * Upload de anexos
 * E-mail automático
