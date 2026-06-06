@@ -7,14 +7,15 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "test": "npm run test:db && npm run test:fornecedores && npm run test:itens && npm run test:usuarios && npm run test:solicitacoes && npm run test:cotacoes && npm run test:compras",
+    "test": "npm run test:db && npm run test:fornecedores && npm run test:itens && npm run test:usuarios && npm run test:solicitacoes && npm run test:cotacoes && npm run test:compras && npm run test:ordens-compra",
     "test:db": "node tests/db/test-db-connection.js",
     "test:fornecedores": "node tests/fornecedores/run-tests.js",
     "test:itens": "node tests/itens/run-tests.js",
     "test:usuarios": "node tests/usuarios/run-tests.js",
     "test:solicitacoes": "node tests/solicitacoes/run-tests.js",
     "test:cotacoes": "node tests/cotacoes/run-tests.js",
-    "test:compras": "node tests/compras/run-tests.js"
+    "test:compras": "node tests/compras/run-tests.js",
+    "test:ordens-compra": "node tests/ordens-compra/run-tests.js"
   },
   "dependencies": {
     "express": "^4.18.3",

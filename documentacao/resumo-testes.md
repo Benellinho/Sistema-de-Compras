@@ -216,6 +216,30 @@ Legenda:
 
 ---
 
+# Ordens de Compra
+
+## Runner e helpers
+
+| Arquivo | Função | Cobertura |
+|---|---|---|
+| `tests/ordens-compra/run-tests.js` | Executa todos os testes de ordens de compra. | Runner/helper |
+| `tests/ordens-compra/helpers/test-utils.js` | Cria fixtures de compra aprovada com fornecedores e itens para geração de OC. | Runner/helper |
+
+## Fluxo de ordem de compra
+
+| Arquivo | Função | Cobertura |
+|---|---|---|
+| `tests/ordens-compra/ordens-compra/criar-ordem-compra.test.js` | Testa geração explícita de OC para fornecedor de compra aprovada e atualização da solicitação para `OC_GERADA`. | Regra de negócio, Banco |
+| `tests/ordens-compra/ordens-compra/bloquear-compra-nao-aprovada.test.js` | Testa bloqueio de OC para compra que ainda não foi aprovada. | Regra de negócio |
+| `tests/ordens-compra/ordens-compra/bloquear-fornecedor-sem-itens.test.js` | Testa bloqueio de OC para fornecedor da compra sem itens comprados. | Regra de negócio |
+| `tests/ordens-compra/ordens-compra/bloquear-ordem-duplicada.test.js` | Testa bloqueio de segunda OC ativa para o mesmo fornecedor da compra. | Regra de negócio, Banco |
+| `tests/ordens-compra/ordens-compra/cancelar-ordem-compra.test.js` | Testa cancelamento de OC e retorno da solicitação para `COMPRA_APROVADA` quando fica sem OCs ativas. | Regra de negócio, Banco |
+| `tests/ordens-compra/ordens-compra/gerar-ordem-substituta.test.js` | Testa geração de OC substituta após cancelamento e marca a OC anterior como `SUBSTITUIDA`. | Regra de negócio, Banco |
+| `tests/ordens-compra/ordens-compra/listar-ordens-por-compra.test.js` | Testa listagem de OCs filtradas por compra. | Regra de negócio, Banco |
+| `tests/ordens-compra/ordens-compra/resumir-ordens-da-compra.test.js` | Testa resumo granular de OCs geradas e pendentes por compra com múltiplos fornecedores. | Regra de negócio, Banco |
+
+---
+
 # Infraestrutura de teste
 
 | Arquivo | Função | Cobertura |
@@ -242,4 +266,8 @@ POST /solicitacoes/:id/aprovacao
 POST /cotacoes
 PATCH /cotacoes/:id/status
 GET /cotacoes/:id/comparativo
+POST /ordens-compra
+PATCH /ordens-compra/:id/cancelamento
+POST /ordens-compra/:id/substituta
+GET /compras/:id/ordens-compra-resumo
 ```
