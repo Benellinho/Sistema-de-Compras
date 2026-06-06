@@ -17,7 +17,8 @@ O sistema tem como foco organizar o fluxo de compras da empresa:
 - Escolha de fornecedores
 - Aprovação de compra
 - Geração de Ordem de Compra
-- Registro futuro no estoque
+- Geração de PDF e envio da Ordem de Compra
+- Estoque como evolução futura
 
 ---
 
@@ -128,6 +129,8 @@ Escolha de fornecedor
 Aprovação da compra
     ↓
 Geração da Ordem de Compra
+    ↓
+PDF e envio da OC
 ```
 
 ---
@@ -184,7 +187,8 @@ POST /solicitacoes
 - Sistema de cotações
 - Aprovação multinível
 - Upload de anexos
-- Geração automática de PDF
+- Geração de PDF da Ordem de Compra
+- Envio da OC ao contato do fornecedor
 - Histórico de alterações
 - Controle de estoque
 - Integração com ERP principal
