@@ -1,6 +1,6 @@
 {
   "name": "sistema-de-compras-backend",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Backend inicial para sistema de compras com Express e SQLite.",
   "type": "module",
   "main": "src/server.js",
