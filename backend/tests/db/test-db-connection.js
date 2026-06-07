@@ -4,16 +4,27 @@ async function main() {
   await initializeDatabase();
 
   const database = await getDatabase();
-  const version = await database.get('SELECT sqlite_version() AS version');
-  const foreignKeys = await database.get('PRAGMA foreign_keys');
-  const fornecedorColumns = await database.all('PRAGMA table_info(FORNECEDORES)');
-  const fornecedorContatoColumns = await database.all('PRAGMA table_info(FORNECEDOR_CONTATOS)');
+  const version = await database.get('SELECT version() AS version');
+  const fornecedorColumns = await database.all(`
+    SELECT column_name AS name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fornecedores'
+    ORDER BY ordinal_position
+  `);
+  const fornecedorContatoColumns = await database.all(`
+    SELECT column_name AS name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fornecedor_contatos'
+    ORDER BY ordinal_position
+  `);
   const tables = await database.all(`
-    SELECT name
-    FROM sqlite_master
-    WHERE type = 'table'
-      AND name NOT LIKE 'sqlite_%'
-    ORDER BY name
+    SELECT table_name AS name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_type = 'BASE TABLE'
+    ORDER BY table_name
   `);
   const expectedFornecedorColumns = ['id', 'cnpj', 'status', 'razao_social', 'nome_fantasia', 'telefone', 'email'];
   const expectedFornecedorContatoColumns = ['id', 'fornecedor_id', 'nome', 'cargo', 'telefone', 'email'];
@@ -34,9 +45,8 @@ async function main() {
     throw new Error(`Colunas ausentes em FORNECEDOR_CONTATOS: ${missingFornecedorContatoColumns.join(', ')}`);
   }
 
-  console.log('Conexao com SQLite OK');
-  console.log(`Versao SQLite: ${version.version}`);
-  console.log(`Foreign keys: ${foreignKeys.foreign_keys === 1 ? 'ON' : 'OFF'}`);
+  console.log('Conexao com PostgreSQL OK');
+  console.log(`Versao PostgreSQL: ${version.version}`);
   console.log(`Tabelas encontradas: ${tables.map((table) => table.name).join(', ')}`);
   console.log(`Colunas FORNECEDORES: ${fornecedorColumnNames.join(', ')}`);
   console.log(`Colunas FORNECEDOR_CONTATOS: ${fornecedorContatoColumnNames.join(', ')}`);
@@ -45,7 +55,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Falha ao validar conexao com SQLite');
+  console.error('Falha ao validar conexao com PostgreSQL');
   console.error(error);
   process.exitCode = 1;
 });

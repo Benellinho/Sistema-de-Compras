@@ -29,27 +29,16 @@ export default async function testNaoGerarOrdemCompra() {
   });
 
   const database = await setupDatabase();
-  const ordensTable = await database.get(`
-    SELECT name
-    FROM sqlite_master
-    WHERE type = 'table'
-      AND name = 'ordens_compra'
-  `);
+  const result = await database.get(
+    `
+      SELECT COUNT(*) AS total
+      FROM ordens_compra
+      WHERE compra_fornecedor_id = ?
+    `,
+    fornecedorCompra.id
+  );
 
-  if (ordensTable) {
-    const result = await database.get(
-      `
-        SELECT COUNT(*) AS total
-        FROM ordens_compra
-        WHERE compra_fornecedor_id = ?
-      `,
-      fornecedorCompra.id
-    );
-
-    assert.equal(result.total, 0);
-  } else {
-    assert.equal(ordensTable, undefined);
-  }
+  assert.equal(result.total, 0);
 
   await cleanupCompraFixtures({ solicitacao, fornecedores });
 }
