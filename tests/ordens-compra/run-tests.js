@@ -12,6 +12,7 @@ import testBloquearPdfOrdemInexistente from './ordens-compra/bloquear-pdf-ordem-
 import testCancelarOrdemCompra from './ordens-compra/cancelar-ordem-compra.test.js';
 import testCriarOrdemCompra from './ordens-compra/criar-ordem-compra.test.js';
 import testEnviarOrdemContato from './ordens-compra/enviar-ordem-contato.test.js';
+import testEnviarOrdemLocalwebSmtpProvider from './ordens-compra/enviar-ordem-localweb-smtp-provider.test.js';
 import testGerarPdfHtml from './ordens-compra/gerar-pdf-html.test.js';
 import testGerarOrdemSubstituta from './ordens-compra/gerar-ordem-substituta.test.js';
 import testListarOrdensPorCompra from './ordens-compra/listar-ordens-por-compra.test.js';
@@ -19,6 +20,7 @@ import testManterStatusEnvioParcial from './ordens-compra/manter-status-envio-pa
 import testRegistrarFalhaEnvio from './ordens-compra/registrar-falha-envio.test.js';
 import testResumirOrdensDaCompra from './ordens-compra/resumir-ordens-da-compra.test.js';
 import testSalvarPdfReal from './ordens-compra/salvar-pdf-real.test.js';
+import testUsarPuppeteerProviderPdf from './ordens-compra/usar-puppeteer-provider-pdf.test.js';
 
 const tests = [
   {
@@ -32,10 +34,12 @@ const tests = [
       ['gerar ordem substituta', testGerarOrdemSubstituta],
       ['listar ordens por compra', testListarOrdensPorCompra],
       ['resumir ordens da compra', testResumirOrdensDaCompra],
+      ['usar puppeteer provider para pdf', testUsarPuppeteerProviderPdf],
       ['gerar pdf html', testGerarPdfHtml],
       ['salvar pdf real', testSalvarPdfReal],
       ['baixar pdf com content type', testBaixarPdfContentType],
       ['bloquear pdf de ordem inexistente', testBloquearPdfOrdemInexistente],
+      ['enviar ordem via localweb smtp provider', testEnviarOrdemLocalwebSmtpProvider],
       ['enviar ordem para contato', testEnviarOrdemContato],
       ['bloquear contato fora do fornecedor', testBloquearContatoForaFornecedor],
       ['bloquear contato sem email', testBloquearContatoSemEmail],

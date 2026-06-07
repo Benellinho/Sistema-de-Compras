@@ -1,5 +1,6 @@
 import { getDatabase } from '../../src/db/connection.js';
 import { printError, printGroup, printSuccess, printSummary } from '../helpers/testLogger.js';
+import testAdicionarFotoOrcamento from './cotacoes/adicionar-foto-orcamento.test.js';
 import testBloquearFornecedorDuplicado from './cotacoes/bloquear-fornecedor-duplicado.test.js';
 import testBloquearFornecedorInexistente from './cotacoes/bloquear-fornecedor-inexistente.test.js';
 import testBloquearItemForaDaSolicitacao from './cotacoes/bloquear-item-fora-da-solicitacao.test.js';
@@ -11,6 +12,7 @@ import testBloquearSolicitacaoReprovada from './cotacoes/bloquear-solicitacao-re
 import testBloquearValorNegativo from './cotacoes/bloquear-valor-negativo.test.js';
 import testBuscarDetalhesCotacao from './cotacoes/buscar-detalhes-cotacao.test.js';
 import testFluxoCotacao from './cotacoes/fluxo-cotacao.test.js';
+import testGerarPdfSolicitacaoOrcamento from './cotacoes/gerar-pdf-solicitacao-orcamento.test.js';
 import testListarCotacoesFiltradas from './cotacoes/listar-cotacoes-filtradas.test.js';
 import testPermitirNovaRodadaCotacaoReprovada from './cotacoes/permitir-nova-rodada-cotacao-reprovada.test.js';
 import testRegistrarFornecedorSemValores from './cotacoes/registrar-fornecedor-sem-valores.test.js';
@@ -22,6 +24,8 @@ const tests = [
     group: 'COTACOES',
     items: [
       ['fluxo cotacao', testFluxoCotacao],
+      ['gerar pdf solicitacao orcamento', testGerarPdfSolicitacaoOrcamento],
+      ['adicionar foto orcamento', testAdicionarFotoOrcamento],
       ['listar cotacoes filtradas', testListarCotacoesFiltradas],
       ['buscar detalhes cotacao', testBuscarDetalhesCotacao],
       ['bloquear solicitacao nao aprovada', testBloquearSolicitacaoNaoAprovada],
