@@ -1,12 +1,18 @@
 import { API_ROUTES, apiUrl } from '../config/api'
 
 async function request(path, options = {}) {
+  const headers = {
+    Accept: 'application/json',
+    ...options.headers,
+  }
+
+  if (options.body) {
+    headers['Content-Type'] = 'application/json'
+  }
+
   const response = await fetch(apiUrl(path), {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
     ...options,
+    headers,
   })
 
   if (!response.ok) {
