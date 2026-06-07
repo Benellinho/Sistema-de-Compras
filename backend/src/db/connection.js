@@ -6,13 +6,18 @@ import { open } from 'sqlite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const databasePath = path.resolve(__dirname, 'database.sqlite');
+const defaultDatabasePath = path.resolve(__dirname, 'database.sqlite');
+const databasePath = path.resolve(
+  process.env.DATABASE_PATH || process.env.SQLITE_DATABASE_PATH || defaultDatabasePath
+);
 const schemaPath = path.resolve(__dirname, 'schema.sql');
 
 let db;
 
 export async function getDatabase() {
   if (!db) {
+    await fs.mkdir(path.dirname(databasePath), { recursive: true });
+
     db = await open({
       filename: databasePath,
       driver: sqlite3.Database

@@ -10,6 +10,44 @@ import usuariosRoutes from './modules/usuarios/usuarios.routes.js';
 
 const app = express();
 
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+];
+
+function getAllowedOrigins() {
+  const origins = process.env.CORS_ORIGIN || process.env.FRONTEND_ORIGIN || '';
+
+  return origins
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function corsMiddleware(req, res, next) {
+  const requestOrigin = req.headers.origin;
+  const allowedOrigins = getAllowedOrigins();
+  const origins = allowedOrigins.length > 0 ? allowedOrigins : defaultAllowedOrigins;
+  const allowAnyOrigin = origins.includes('*');
+
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
+  if (requestOrigin && (allowAnyOrigin || origins.includes(requestOrigin))) {
+    res.setHeader('Access-Control-Allow-Origin', allowAnyOrigin ? '*' : requestOrigin);
+  }
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send();
+    return;
+  }
+
+  next();
+}
+
+app.set('trust proxy', 1);
+app.use(corsMiddleware);
 app.use(express.json());
 
 app.get('/health', (req, res) => {
