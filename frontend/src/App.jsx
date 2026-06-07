@@ -1,16 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { API_BASE_URL } from './config/api'
+import { API_BASE_URL, API_ROUTES } from './config/api'
 import { comprasApi } from './services/api'
-import {
-  demoCompras,
-  demoCotacaoRespostas,
-  demoCotacoes,
-  demoFornecedores,
-  demoItens,
-  demoOrdensCompra,
-  demoSolicitacoes,
-  demoUsuarios,
-} from './data/demoData'
 import './App.css'
 
 const tabs = [
@@ -22,23 +12,34 @@ const tabs = [
   { id: 'retorno-cotacao', label: 'Retorno cotacao' },
   { id: 'aprovar-cotacao', label: 'Aprovar cotacao' },
   { id: 'compras', label: 'Compras' },
+  { id: 'cadastro-base', label: 'Cadastrar base' },
   { id: 'cadastros', label: 'Cadastros' },
 ]
 
 const statusLabels = {
   ABERTA: 'Aberta',
   APROVADA: 'Aprovada',
+  REPROVADA: 'Reprovada',
+  COTACAO_REPROVADA: 'Cotacao reprovada',
   EM_COTACAO: 'Em cotacao',
   EM_ANDAMENTO: 'Em andamento',
-  COMPRA_APROVADA: 'Compra aprovada',
+  EM_ANALISE: 'Em analise',
+  ENCERRADA: 'Encerrada',
+  CANCELADA: 'Cancelada',
   EM_MONTAGEM: 'Em montagem',
+  AGUARDANDO_APROVACAO: 'Aguardando aprovacao',
   GERADA: 'Gerada',
+  SUBSTITUIDA: 'Substituida',
+  CONVIDADO: 'Convidado',
+  ENVIADO: 'Enviado',
   PENDENTE: 'Pendente',
   RESPONDIDO: 'Respondido',
   RECUSADO: 'Recusado',
   SEM_RESPOSTA: 'Sem resposta',
   DISPONIVEL: 'Disponivel',
   INDISPONIVEL: 'Indisponivel',
+  ATIVO: 'Ativo',
+  INATIVO: 'Inativo',
   APROVAR: 'Aprovar',
   REPROVAR: 'Reprovar',
 }
@@ -46,47 +47,166 @@ const statusLabels = {
 const statusClass = {
   ABERTA: 'info',
   APROVADA: 'success',
+  REPROVADA: 'danger',
+  COTACAO_REPROVADA: 'danger',
   EM_COTACAO: 'warning',
   EM_ANDAMENTO: 'warning',
-  COMPRA_APROVADA: 'success',
+  EM_ANALISE: 'warning',
+  ENCERRADA: 'neutral',
+  CANCELADA: 'danger',
   EM_MONTAGEM: 'info',
+  AGUARDANDO_APROVACAO: 'warning',
   GERADA: 'success',
+  SUBSTITUIDA: 'neutral',
+  CONVIDADO: 'info',
+  ENVIADO: 'warning',
   PENDENTE: 'warning',
   RESPONDIDO: 'success',
   RECUSADO: 'danger',
   SEM_RESPOSTA: 'neutral',
   DISPONIVEL: 'success',
   INDISPONIVEL: 'danger',
+  ATIVO: 'success',
+  INATIVO: 'neutral',
 }
+
+const finalCotacaoStatuses = new Set(['APROVADA', 'REPROVADA', 'CANCELADA', 'ENCERRADA'])
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(value)
+  }).format(Number(value || 0))
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '-'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return '-'
+  }
+
+  return date.toLocaleDateString('pt-BR')
 }
 
 function statusText(status) {
-  return statusLabels[status] || status
+  return statusLabels[status] || status || '-'
 }
 
-function buildRetornoItens(cotacao, solicitacoes) {
-  const solicitacao = solicitacoes.find((item) => item.numero === cotacao?.solicitacao)
+function resourceCode(prefix, id) {
+  return `${prefix}-${new Date().getFullYear()}-${String(id || 0).padStart(6, '0')}`
+}
 
-  if (!solicitacao) {
-    return []
+function solicitacaoNumero(solicitacao) {
+  return resourceCode('SC', solicitacao?.id)
+}
+
+function cotacaoNumero(cotacao) {
+  return resourceCode('CT', cotacao?.id)
+}
+
+function compraNumero(compra) {
+  return resourceCode('CP', compra?.id)
+}
+
+function solicitacaoItens(solicitacao) {
+  return Array.isArray(solicitacao?.itens) ? solicitacao.itens : []
+}
+
+function solicitacaoPrincipalItem(solicitacao) {
+  const firstItem = solicitacaoItens(solicitacao)[0]
+  return (
+    firstItem?.descricao_necessidade ||
+    firstItem?.item_descricao ||
+    firstItem?.descricao ||
+    'Sem item'
+  )
+}
+
+function solicitacaoQuantidade(solicitacao) {
+  const firstItem = solicitacaoItens(solicitacao)[0]
+
+  if (!firstItem) {
+    return '-'
   }
 
-  return [
-    {
-      descricao: solicitacao.item,
-      quantidade: solicitacao.quantidade,
-      unidade: solicitacao.unidade,
-      statusItem: 'DISPONIVEL',
-      valorUnitario: '',
-      observacoes: '',
-    },
-  ]
+  return `${Number(firstItem.quantidade || 0)} ${firstItem.unidade_snapshot || ''}`.trim()
+}
+
+function isActiveUsuario(usuario) {
+  return usuario?.ativo !== false && usuario?.ativo !== 0
+}
+
+function isActiveFornecedor(fornecedor) {
+  return !fornecedor?.status || fornecedor.status === 'ATIVO'
+}
+
+function isActiveItem(item) {
+  return item?.ativo !== false && item?.ativo !== 0
+}
+
+function fornecedorNome(fornecedor) {
+  return (
+    fornecedor?.fornecedor_nome_fantasia ||
+    fornecedor?.nome_fantasia ||
+    fornecedor?.fornecedor_razao_social ||
+    fornecedor?.razao_social ||
+    fornecedor?.razaoSocial ||
+    'Fornecedor'
+  )
+}
+
+function usuarioNome(usuario) {
+  return usuario?.nome || usuario?.email || `Usuario ${usuario?.id || ''}`.trim()
+}
+
+function cotacaoFornecedorTotal(fornecedor) {
+  return (fornecedor?.itens || []).reduce((sum, item) => {
+    if (item.status_item === 'INDISPONIVEL') {
+      return sum
+    }
+
+    return sum + Number(item.valor_total || Number(item.quantidade || 0) * Number(item.valor_unitario || 0))
+  }, 0)
+}
+
+function cotacaoMelhorValor(cotacao) {
+  const totais = (cotacao?.fornecedores || [])
+    .filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
+    .map(cotacaoFornecedorTotal)
+    .filter((total) => total > 0)
+
+  if (totais.length < 1) {
+    return 0
+  }
+
+  return Math.min(...totais)
+}
+
+function compraTotal(compra) {
+  return (compra?.fornecedores || []).reduce(
+    (sum, fornecedor) =>
+      sum +
+      (fornecedor.itens || []).reduce(
+        (itemSum, item) =>
+          itemSum +
+          Number(item.valor_total || Number(item.quantidade_pedida || 0) * Number(item.valor_unitario || 0)),
+        0,
+      ),
+    0,
+  )
+}
+
+function ordemTotal(ordem) {
+  return (ordem?.itens || []).reduce(
+    (sum, item) =>
+      sum + Number(item.valor_total || Number(item.quantidade_pedida || 0) * Number(item.valor_unitario || 0)),
+    0,
+  )
 }
 
 function calculateResponseTotal(itens) {
@@ -99,108 +219,193 @@ function calculateResponseTotal(itens) {
   }, 0)
 }
 
+function buildRetornoItens(cotacao, solicitacoes) {
+  const solicitacao = solicitacoes.find(
+    (item) => Number(item.id) === Number(cotacao?.solicitacao_id),
+  )
+
+  return solicitacaoItens(solicitacao).map((item) => ({
+    solicitacaoItemId: item.id,
+    descricao: item.descricao_necessidade || item.item_descricao || item.descricao || 'Item',
+    quantidade: Number(item.quantidade || 0),
+    unidade: item.unidade_snapshot || item.unidade || '',
+    statusItem: 'DISPONIVEL',
+    valorUnitario: '',
+    observacoes: '',
+  }))
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState('inicio')
-  const [solicitacoes, setSolicitacoes] = useState(demoSolicitacoes)
-  const [cotacoes, setCotacoes] = useState(demoCotacoes)
-  const [cotacaoRespostas, setCotacaoRespostas] = useState(demoCotacaoRespostas)
-  const [compras, setCompras] = useState(demoCompras)
-  const [ordensCompra, setOrdensCompra] = useState(demoOrdensCompra)
+  const [usuarios, setUsuarios] = useState([])
+  const [fornecedores, setFornecedores] = useState([])
+  const [contatosFornecedor, setContatosFornecedor] = useState([])
+  const [grupos, setGrupos] = useState([])
+  const [itens, setItens] = useState([])
+  const [solicitacoes, setSolicitacoes] = useState([])
+  const [cotacoes, setCotacoes] = useState([])
+  const [compras, setCompras] = useState([])
+  const [ordensCompra, setOrdensCompra] = useState([])
+  const [loadingData, setLoadingData] = useState(false)
+  const [actionFeedback, setActionFeedback] = useState('')
   const [apiStatus, setApiStatus] = useState({
     label: 'Aguardando checagem',
     tone: 'neutral',
     detail: 'Clique em checar ou aguarde a verificacao inicial.',
   })
   const [draft, setDraft] = useState({
-    item: demoItens[0].descricao,
+    solicitanteId: '',
+    itemId: '',
     quantidade: 10,
     centroCusto: 'Manutencao',
     prioridade: 'Normal',
+    descricaoNecessidade: '',
+    observacoes: '',
   })
   const [envioCotacao, setEnvioCotacao] = useState({
-    solicitacaoId: demoSolicitacoes.find((item) => item.status === 'ABERTA')?.id || '',
-    fornecedorIds: demoFornecedores.slice(0, 3).map((item) => String(item.id)),
-    prazoResposta: '2026-06-10',
+    solicitacaoId: '',
+    fornecedorIds: [],
+    usuarioId: '',
     observacoes: 'Solicitar orcamento formal com prazo de entrega e condicao de pagamento.',
   })
-  const [aprovacaoCotacao, setAprovacaoCotacao] = useState({
-    cotacaoId: demoCotacoes.find((item) => item.status === 'EM_ANDAMENTO')?.id || '',
-    fornecedorId: String(demoFornecedores[1].id),
-    decisao: 'APROVAR',
-    observacao: 'Melhor valor com fornecedor homologado e prazo compativel.',
-  })
-  const firstOpenCotacao = demoCotacoes.find((item) => item.status === 'EM_ANDAMENTO')
   const [retornoCotacao, setRetornoCotacao] = useState({
-    cotacaoId: firstOpenCotacao?.id || '',
-    fornecedorId: String(demoFornecedores[2].id),
+    cotacaoId: '',
+    cotacaoFornecedorId: '',
     status: 'RESPONDIDO',
     prazoEntrega: '5 dias',
     formaPagamento: '30 dias',
     observacoes: 'Condicoes recebidas por email e lancadas manualmente.',
     anexo: '',
-    itens: buildRetornoItens(firstOpenCotacao, demoSolicitacoes),
+    itens: [],
   })
-  const [retornoFeedback, setRetornoFeedback] = useState('')
+  const [aprovacaoCotacao, setAprovacaoCotacao] = useState({
+    cotacaoId: '',
+    fornecedorId: '',
+    usuarioId: '',
+    decisao: 'APROVAR',
+    observacao: 'Melhor valor com fornecedor homologado e prazo compativel.',
+  })
+  const [fornecedorForm, setFornecedorForm] = useState({
+    cnpj: '',
+    razaoSocial: '',
+    nomeFantasia: '',
+    telefone: '',
+    email: '',
+  })
+  const [contatoForm, setContatoForm] = useState({
+    fornecedorId: '',
+    nome: '',
+    cargo: '',
+    telefone: '',
+    email: '',
+  })
+  const [grupoForm, setGrupoForm] = useState({
+    nome: '',
+  })
+  const [itemForm, setItemForm] = useState({
+    codigo: '',
+    descricao: '',
+    unidade: 'UN',
+    classificacao: 'CUSTO',
+    grupoId: '',
+    controlaEstoque: false,
+  })
 
-  const solicitacoesAbertas = useMemo(
-    () => solicitacoes.filter((solicitacao) => solicitacao.status === 'ABERTA'),
+  const usuariosAtivos = useMemo(() => usuarios.filter(isActiveUsuario), [usuarios])
+  const fornecedoresAtivos = useMemo(
+    () => fornecedores.filter(isActiveFornecedor),
+    [fornecedores],
+  )
+  const gruposAtivos = useMemo(() => grupos.filter(isActiveItem), [grupos])
+  const itensAtivos = useMemo(() => itens.filter(isActiveItem), [itens])
+  const defaultUsuarioId = usuariosAtivos[0]?.id ? String(usuariosAtivos[0].id) : ''
+
+  const solicitacoesCotaveis = useMemo(
+    () =>
+      solicitacoes.filter((solicitacao) =>
+        ['ABERTA', 'APROVADA', 'COTACAO_REPROVADA'].includes(solicitacao.status),
+      ),
     [solicitacoes],
   )
 
-  const cotacoesEmAndamento = useMemo(
-    () => cotacoes.filter((cotacao) => cotacao.status === 'EM_ANDAMENTO'),
+  const cotacoesAbertas = useMemo(
+    () => cotacoes.filter((cotacao) => !finalCotacaoStatuses.has(cotacao.status)),
     [cotacoes],
+  )
+
+  const cotacoesComFornecedores = useMemo(
+    () => cotacoesAbertas.filter((cotacao) => (cotacao.fornecedores || []).length > 0),
+    [cotacoesAbertas],
+  )
+
+  const cotacoesParaAprovacao = useMemo(
+    () =>
+      cotacoesAbertas.filter((cotacao) =>
+        (cotacao.fornecedores || []).some((fornecedor) => fornecedor.status === 'RESPONDIDO'),
+      ),
+    [cotacoesAbertas],
   )
 
   const selectedEnvioSolicitacao = useMemo(
     () =>
       solicitacoes.find(
-        (solicitacao) => solicitacao.id === Number(envioCotacao.solicitacaoId),
+        (solicitacao) => Number(solicitacao.id) === Number(envioCotacao.solicitacaoId),
       ),
     [envioCotacao.solicitacaoId, solicitacoes],
   )
 
-  const selectedAprovacaoCotacao = useMemo(
-    () =>
-      cotacoes.find((cotacao) => cotacao.id === Number(aprovacaoCotacao.cotacaoId)),
-    [aprovacaoCotacao.cotacaoId, cotacoes],
-  )
-
-  const selectedAprovacaoSolicitacao = useMemo(
-    () =>
-      solicitacoes.find(
-        (solicitacao) => solicitacao.numero === selectedAprovacaoCotacao?.solicitacao,
-      ),
-    [selectedAprovacaoCotacao, solicitacoes],
-  )
-
   const selectedRetornoCotacao = useMemo(
-    () => cotacoes.find((cotacao) => cotacao.id === Number(retornoCotacao.cotacaoId)),
+    () => cotacoes.find((cotacao) => Number(cotacao.id) === Number(retornoCotacao.cotacaoId)),
     [cotacoes, retornoCotacao.cotacaoId],
   )
 
   const selectedRetornoSolicitacao = useMemo(
     () =>
       solicitacoes.find(
-        (solicitacao) => solicitacao.numero === selectedRetornoCotacao?.solicitacao,
+        (solicitacao) => Number(solicitacao.id) === Number(selectedRetornoCotacao?.solicitacao_id),
       ),
     [selectedRetornoCotacao, solicitacoes],
   )
 
   const selectedRetornoFornecedor = useMemo(
     () =>
-      demoFornecedores.find(
-        (fornecedor) => fornecedor.id === Number(retornoCotacao.fornecedorId),
+      (selectedRetornoCotacao?.fornecedores || []).find(
+        (fornecedor) => Number(fornecedor.id) === Number(retornoCotacao.cotacaoFornecedorId),
       ),
-    [retornoCotacao.fornecedorId],
+    [retornoCotacao.cotacaoFornecedorId, selectedRetornoCotacao],
+  )
+
+  const selectedAprovacaoCotacao = useMemo(
+    () =>
+      cotacoes.find((cotacao) => Number(cotacao.id) === Number(aprovacaoCotacao.cotacaoId)),
+    [aprovacaoCotacao.cotacaoId, cotacoes],
+  )
+
+  const selectedAprovacaoSolicitacao = useMemo(
+    () =>
+      solicitacoes.find(
+        (solicitacao) =>
+          Number(solicitacao.id) === Number(selectedAprovacaoCotacao?.solicitacao_id),
+      ),
+    [selectedAprovacaoCotacao, solicitacoes],
+  )
+
+  const selectedAprovacaoFornecedor = useMemo(
+    () =>
+      (selectedAprovacaoCotacao?.fornecedores || []).find(
+        (fornecedor) =>
+          Number(fornecedor.fornecedor_id) === Number(aprovacaoCotacao.fornecedorId) &&
+          fornecedor.status === 'RESPONDIDO',
+      ),
+    [aprovacaoCotacao.fornecedorId, selectedAprovacaoCotacao],
   )
 
   const respostasDaCotacao = useMemo(
     () =>
-      cotacaoRespostas.filter(
-        (resposta) => resposta.cotacaoId === Number(retornoCotacao.cotacaoId),
+      (selectedRetornoCotacao?.fornecedores || []).filter((fornecedor) =>
+        ['RESPONDIDO', 'RECUSADO', 'SEM_RESPOSTA'].includes(fornecedor.status),
       ),
-    [cotacaoRespostas, retornoCotacao.cotacaoId],
+    [selectedRetornoCotacao],
   )
 
   const retornoTotal = useMemo(
@@ -208,284 +413,791 @@ function App() {
     [retornoCotacao.itens],
   )
 
-  const metrics = useMemo(() => {
-    const totalSolicitado = solicitacoes.reduce(
-      (sum, solicitacao) => sum + solicitacao.valorEstimado,
-      0,
-    )
-    const economiaCotada = cotacoes.reduce(
-      (sum, cotacao) => sum + Math.max(0, cotacao.melhorValor * 0.06),
-      0,
+  const compraFornecedorElegivel = useMemo(() => {
+    const ordensAtivas = new Set(
+      ordensCompra
+        .filter((ordem) => ordem.status === 'GERADA')
+        .map((ordem) => Number(ordem.compra_fornecedor_id)),
     )
 
-    return [
+    for (const compra of compras) {
+      if (compra.status !== 'APROVADA') {
+        continue
+      }
+
+      const fornecedor = (compra.fornecedores || []).find(
+        (item) => !ordensAtivas.has(Number(item.id)),
+      )
+
+      if (fornecedor) {
+        return { compra, fornecedor }
+      }
+    }
+
+    return null
+  }, [compras, ordensCompra])
+
+  const metrics = useMemo(
+    () => [
       {
         label: 'Solicitacoes abertas',
         value: solicitacoes.filter((item) => item.status === 'ABERTA').length,
-        detail: `${solicitacoes.length} no fluxo`,
+        detail: `${solicitacoes.length} no backend`,
       },
       {
         label: 'Cotacoes ativas',
-        value: cotacoes.filter((item) => item.status !== 'APROVADA').length,
+        value: cotacoesAbertas.length,
         detail: `${cotacoes.length} rodadas`,
       },
       {
         label: 'Valor em compras',
-        value: formatCurrency(totalSolicitado),
-        detail: 'base demonstrativa',
+        value: formatCurrency(compras.reduce((sum, compra) => sum + compraTotal(compra), 0)),
+        detail: 'compras carregadas',
       },
       {
-        label: 'Economia estimada',
-        value: formatCurrency(economiaCotada),
-        detail: 'comparativo de cotacao',
+        label: 'OCs geradas',
+        value: ordensCompra.filter((ordem) => ordem.status === 'GERADA').length,
+        detail: `${ordensCompra.length} ordens`,
       },
-    ]
-  }, [cotacoes, solicitacoes])
+    ],
+    [compras, cotacoes.length, cotacoesAbertas.length, ordensCompra, solicitacoes],
+  )
+
+  const solicitacaoRows = useMemo(
+    () =>
+      solicitacoes.map((solicitacao) => ({
+        id: solicitacao.id,
+        numero: solicitacaoNumero(solicitacao),
+        solicitante: solicitacao.solicitante_nome || solicitacao.solicitante_email || '-',
+        item: solicitacaoPrincipalItem(solicitacao),
+        quantidade: solicitacaoQuantidade(solicitacao),
+        status: solicitacao.status,
+        data: formatDate(solicitacao.created_at),
+      })),
+    [solicitacoes],
+  )
+
+  const cotacaoRows = useMemo(
+    () =>
+      cotacoes.map((cotacao) => {
+        const resumo = cotacao.resumo_respostas || {}
+        const respondidos =
+          resumo.fornecedores_respondidos ??
+          (cotacao.fornecedores || []).filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
+            .length
+        const convidados =
+          resumo.fornecedores_convidados ?? (cotacao.fornecedores || []).length
+
+        return {
+          id: cotacao.id,
+          numero: cotacaoNumero(cotacao),
+          solicitacao: resourceCode('SC', cotacao.solicitacao_id),
+          rodada: cotacao.numero_rodada || 1,
+          status: cotacao.status,
+          respostas: `${respondidos}/${convidados}`,
+          melhorValor: cotacaoMelhorValor(cotacao),
+        }
+      }),
+    [cotacoes],
+  )
+
+  const compraRows = useMemo(
+    () =>
+      compras.map((compra) => {
+        const fornecedor = compra.fornecedores?.[0]
+
+        return {
+          id: compra.id,
+          numero: compraNumero(compra),
+          solicitacao: resourceCode('SC', compra.solicitacao_id),
+          fornecedor: fornecedorNome(fornecedor),
+          aprovador: compra.criado_por_nome || '-',
+          total: compraTotal(compra),
+          status: compra.status,
+        }
+      }),
+    [compras],
+  )
+
+  const ordemRows = useMemo(
+    () =>
+      ordensCompra.map((ordem) => ({
+        id: ordem.id,
+        numero: ordem.numero_oc || resourceCode('OC', ordem.id),
+        compra: resourceCode('CP', ordem.compra_id),
+        fornecedor: fornecedorNome(ordem),
+        total: ordemTotal(ordem),
+        status: ordem.status,
+        envio: ordem.envios?.[0]?.status || 'PENDENTE',
+      })),
+    [ordensCompra],
+  )
 
   useEffect(() => {
     checkApi()
+    loadBackendData()
+    // Initial screen bootstrap only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function handleCreateSolicitacao(event) {
-    event.preventDefault()
-
-    const nextId = Math.max(...solicitacoes.map((item) => item.id)) + 1
-    const novaSolicitacao = {
-      id: nextId,
-      numero: `SC-2026-${String(nextId).padStart(6, '0')}`,
-      solicitante: 'Usuario demo',
-      centroCusto: draft.centroCusto,
-      item: draft.item,
-      quantidade: Number(draft.quantidade),
-      unidade: 'UN',
-      status: 'ABERTA',
-      prioridade: draft.prioridade,
-      valorEstimado: Number(draft.quantidade) * 72,
-      data: new Date().toISOString().slice(0, 10),
-    }
-
-    setSolicitacoes((current) => [novaSolicitacao, ...current])
-    setEnvioCotacao((current) => ({ ...current, solicitacaoId: nextId }))
-    setActiveTab('solicitacoes')
-  }
-
-  function enviarSolicitacaoParaCotacao(event) {
-    event.preventDefault()
-
-    if (!selectedEnvioSolicitacao || selectedEnvioSolicitacao.status !== 'ABERTA') {
-      return
-    }
-
-    const nextCotacaoId = Math.max(...cotacoes.map((item) => item.id)) + 1
-    setSolicitacoes((current) =>
-      current.map((item) =>
-        item.id === selectedEnvioSolicitacao.id
-          ? { ...item, status: 'EM_COTACAO' }
-          : item,
-      ),
+  function syncFormDefaults({
+    usuariosData,
+    fornecedoresData,
+    gruposData,
+    itensData,
+    solicitacoesData,
+    cotacoesData,
+  }) {
+    const nextUsuariosAtivos = usuariosData.filter(isActiveUsuario)
+    const nextFornecedoresAtivos = fornecedoresData.filter(isActiveFornecedor)
+    const nextGruposAtivos = gruposData.filter(isActiveItem)
+    const nextItensAtivos = itensData.filter(isActiveItem)
+    const nextDefaultUsuarioId = nextUsuariosAtivos[0]?.id ? String(nextUsuariosAtivos[0].id) : ''
+    const nextSolicitacoesCotaveis = solicitacoesData.filter((solicitacao) =>
+      ['ABERTA', 'APROVADA', 'COTACAO_REPROVADA'].includes(solicitacao.status),
     )
-    setCotacoes((current) => [
-      {
-        id: nextCotacaoId,
-        numero: `CT-2026-${String(nextCotacaoId).padStart(6, '0')}`,
-        solicitacao: selectedEnvioSolicitacao.numero,
-        rodada: 1,
-        status: 'EM_ANDAMENTO',
-        respostas: 0,
-        fornecedores: envioCotacao.fornecedorIds.length,
-        melhorValor: Math.round(selectedEnvioSolicitacao.valorEstimado * 0.94),
-      },
+    const nextCotacoesAbertas = cotacoesData.filter(
+      (cotacao) => !finalCotacaoStatuses.has(cotacao.status),
+    )
+    const nextCotacoesComFornecedores = nextCotacoesAbertas.filter(
+      (cotacao) => (cotacao.fornecedores || []).length > 0,
+    )
+    const nextCotacoesParaAprovacao = nextCotacoesAbertas.filter((cotacao) =>
+      (cotacao.fornecedores || []).some((fornecedor) => fornecedor.status === 'RESPONDIDO'),
+    )
+
+    setDraft((current) => {
+      const userIsValid = nextUsuariosAtivos.some(
+        (usuario) => Number(usuario.id) === Number(current.solicitanteId),
+      )
+      const itemIsValid = nextItensAtivos.some((item) => Number(item.id) === Number(current.itemId))
+      const nextItem = itemIsValid ? current.itemId : nextItensAtivos[0]?.id || ''
+      const selectedItem = nextItensAtivos.find((item) => Number(item.id) === Number(nextItem))
+
+      return {
+        ...current,
+        solicitanteId: userIsValid ? current.solicitanteId : nextDefaultUsuarioId,
+        itemId: nextItem ? String(nextItem) : '',
+        descricaoNecessidade:
+          current.descricaoNecessidade ||
+          selectedItem?.descricao ||
+          selectedItem?.codigo ||
+          '',
+      }
+    })
+
+    setEnvioCotacao((current) => {
+      const solicitacaoIsValid = nextSolicitacoesCotaveis.some(
+        (solicitacao) => Number(solicitacao.id) === Number(current.solicitacaoId),
+      )
+      const validFornecedorIds = current.fornecedorIds.filter((id) =>
+        nextFornecedoresAtivos.some((fornecedor) => Number(fornecedor.id) === Number(id)),
+      )
+
+      return {
+        ...current,
+        solicitacaoId: solicitacaoIsValid
+          ? current.solicitacaoId
+          : nextSolicitacoesCotaveis[0]?.id
+            ? String(nextSolicitacoesCotaveis[0].id)
+            : '',
+        usuarioId:
+          current.usuarioId &&
+          nextUsuariosAtivos.some((usuario) => Number(usuario.id) === Number(current.usuarioId))
+            ? current.usuarioId
+            : nextDefaultUsuarioId,
+        fornecedorIds:
+          validFornecedorIds.length > 0
+            ? validFornecedorIds
+            : nextFornecedoresAtivos.slice(0, 3).map((fornecedor) => String(fornecedor.id)),
+      }
+    })
+
+    setRetornoCotacao((current) => {
+      const cotacaoAtual =
+        nextCotacoesComFornecedores.find(
+          (cotacao) => Number(cotacao.id) === Number(current.cotacaoId),
+        ) || nextCotacoesComFornecedores[0]
+      const fornecedoresCotacao = cotacaoAtual?.fornecedores || []
+      const fornecedorAtual =
+        fornecedoresCotacao.find(
+          (fornecedor) => Number(fornecedor.id) === Number(current.cotacaoFornecedorId),
+        ) || fornecedoresCotacao[0]
+
+      return {
+        ...current,
+        cotacaoId: cotacaoAtual?.id ? String(cotacaoAtual.id) : '',
+        cotacaoFornecedorId: fornecedorAtual?.id ? String(fornecedorAtual.id) : '',
+        itens: cotacaoAtual ? buildRetornoItens(cotacaoAtual, solicitacoesData) : [],
+      }
+    })
+
+    setAprovacaoCotacao((current) => {
+      const cotacaoAtual =
+        nextCotacoesParaAprovacao.find(
+          (cotacao) => Number(cotacao.id) === Number(current.cotacaoId),
+        ) || nextCotacoesParaAprovacao[0]
+      const fornecedoresRespondidos = (cotacaoAtual?.fornecedores || []).filter(
+        (fornecedor) => fornecedor.status === 'RESPONDIDO',
+      )
+      const fornecedorAtual =
+        fornecedoresRespondidos.find(
+          (fornecedor) => Number(fornecedor.fornecedor_id) === Number(current.fornecedorId),
+        ) || fornecedoresRespondidos[0]
+
+      return {
+        ...current,
+        cotacaoId: cotacaoAtual?.id ? String(cotacaoAtual.id) : '',
+        fornecedorId: fornecedorAtual?.fornecedor_id ? String(fornecedorAtual.fornecedor_id) : '',
+        usuarioId:
+          current.usuarioId &&
+          nextUsuariosAtivos.some((usuario) => Number(usuario.id) === Number(current.usuarioId))
+            ? current.usuarioId
+            : nextDefaultUsuarioId,
+      }
+    })
+
+    setContatoForm((current) => ({
       ...current,
-    ])
-    setAprovacaoCotacao((current) => ({ ...current, cotacaoId: nextCotacaoId }))
-    setRetornoCotacao((current) => ({
-      ...current,
-      cotacaoId: nextCotacaoId,
-      fornecedorId: envioCotacao.fornecedorIds[0] || String(demoFornecedores[0].id),
-      itens: buildRetornoItens(
-        {
-          solicitacao: selectedEnvioSolicitacao.numero,
-        },
-        solicitacoes,
-      ),
-    }))
-    setActiveTab('cotacoes')
-  }
-
-  function handleRetornoCotacaoSubmit(event) {
-    event.preventDefault()
-
-    if (!selectedRetornoCotacao || !selectedRetornoFornecedor) {
-      return
-    }
-
-    const total =
-      retornoCotacao.status === 'RESPONDIDO' ? calculateResponseTotal(retornoCotacao.itens) : 0
-    const resposta = {
-      id:
-        cotacaoRespostas.find(
-          (item) =>
-            item.cotacaoId === selectedRetornoCotacao.id &&
-            item.fornecedorId === selectedRetornoFornecedor.id,
-        )?.id || Date.now(),
-      cotacaoId: selectedRetornoCotacao.id,
-      fornecedorId: selectedRetornoFornecedor.id,
-      fornecedor: selectedRetornoFornecedor.razaoSocial,
-      status: retornoCotacao.status,
-      prazoEntrega: retornoCotacao.prazoEntrega,
-      formaPagamento: retornoCotacao.formaPagamento,
-      observacoes: retornoCotacao.observacoes,
-      anexo: retornoCotacao.anexo || '-',
-      total,
-      itens: retornoCotacao.itens.map((item) => ({
-        ...item,
-        valorUnitario: Number(item.valorUnitario || 0),
-      })),
-    }
-
-    const respostasAtualizadas = [
-      resposta,
-      ...cotacaoRespostas.filter(
-        (item) =>
-          item.cotacaoId !== resposta.cotacaoId ||
-          item.fornecedorId !== resposta.fornecedorId,
-      ),
-    ]
-
-    setCotacaoRespostas(respostasAtualizadas)
-    setCotacoes((current) =>
-      current.map((cotacao) => {
-        if (cotacao.id !== selectedRetornoCotacao.id) {
-          return cotacao
-        }
-
-        const respostasRespondidas = respostasAtualizadas.filter(
-          (item) => item.cotacaoId === cotacao.id && item.status === 'RESPONDIDO',
+      fornecedorId:
+        current.fornecedorId &&
+        nextFornecedoresAtivos.some(
+          (fornecedor) => Number(fornecedor.id) === Number(current.fornecedorId),
         )
-        const melhorValor =
-          respostasRespondidas.length > 0
-            ? Math.min(...respostasRespondidas.map((item) => item.total))
-            : cotacao.melhorValor
+          ? current.fornecedorId
+          : nextFornecedoresAtivos[0]?.id
+            ? String(nextFornecedoresAtivos[0].id)
+            : '',
+    }))
 
-        return {
-          ...cotacao,
-          respostas: respostasRespondidas.length,
-          melhorValor,
-        }
-      }),
-    )
-    setRetornoFeedback(`Retorno de ${selectedRetornoFornecedor.razaoSocial} salvo.`)
+    setItemForm((current) => ({
+      ...current,
+      grupoId:
+        current.grupoId &&
+        nextGruposAtivos.some((grupo) => Number(grupo.id) === Number(current.grupoId))
+          ? current.grupoId
+          : nextGruposAtivos[0]?.id
+            ? String(nextGruposAtivos[0].id)
+            : '',
+    }))
   }
 
-  function aprovarCotacao(event) {
-    event.preventDefault()
-
-    if (!selectedAprovacaoCotacao || aprovacaoCotacao.decisao !== 'APROVAR') {
-      return
+  async function loadBackendData({ silent = false, successMessage = '' } = {}) {
+    if (!silent) {
+      setLoadingData(true)
     }
 
-    const nextCompraId = Math.max(...compras.map((item) => item.id)) + 1
-    const fornecedorEscolhido =
-      demoFornecedores.find(
-        (fornecedor) => fornecedor.id === Number(aprovacaoCotacao.fornecedorId),
-      ) || demoFornecedores[0]
+    try {
+      const [
+        usuariosData,
+        fornecedoresData,
+        gruposData,
+        itensData,
+        solicitacoesData,
+        cotacoesData,
+        comprasData,
+        ordensData,
+      ] = await Promise.all([
+        comprasApi.listarUsuarios(),
+        comprasApi.listarFornecedores(),
+        comprasApi.listarGrupos(),
+        comprasApi.listarItens(),
+        comprasApi.listarSolicitacoes(),
+        comprasApi.listarCotacoes(),
+        comprasApi.listarCompras(),
+        comprasApi.listarOrdensCompra(),
+      ])
 
-    setCotacoes((current) =>
-      current.map((item) =>
-        item.id === selectedAprovacaoCotacao.id
-          ? { ...item, status: 'APROVADA', respostas: 3 }
-          : item,
-      ),
-    )
-    setSolicitacoes((current) =>
-      current.map((item) =>
-        item.numero === selectedAprovacaoCotacao.solicitacao
-          ? { ...item, status: 'COMPRA_APROVADA' }
-          : item,
-      ),
-    )
-    setCompras((current) => [
-      {
-        id: nextCompraId,
-        numero: `CP-2026-${String(nextCompraId).padStart(6, '0')}`,
-        solicitacao: selectedAprovacaoCotacao.solicitacao,
-        fornecedor: fornecedorEscolhido.razaoSocial,
-        status: 'APROVADA',
-        total: selectedAprovacaoCotacao.melhorValor,
-        aprovador: 'Carla Gestora',
-      },
-      ...current,
-    ])
-    setActiveTab('compras')
-  }
+      const solicitacoesDetalhadas = await Promise.all(
+        solicitacoesData.map((solicitacao) =>
+          comprasApi.buscarSolicitacao(solicitacao.id).catch(() => ({
+            ...solicitacao,
+            itens: [],
+          })),
+        ),
+      )
+      const cotacoesDetalhadas = await Promise.all(
+        cotacoesData.map((cotacao) =>
+          comprasApi.buscarCotacao(cotacao.id).catch(() => ({
+            ...cotacao,
+            fornecedores: [],
+            resumo_respostas: null,
+          })),
+        ),
+      )
+      const contatosData = (
+        await Promise.all(
+          fornecedoresData.map((fornecedor) =>
+            comprasApi
+              .listarContatosFornecedor(fornecedor.id)
+              .catch(() => [])
+              .then((contatos) =>
+                contatos.map((contato) => ({
+                  ...contato,
+                  fornecedor_nome: fornecedorNome(fornecedor),
+                })),
+              ),
+          ),
+        )
+      ).flat()
 
-  function createOrdemCompra() {
-    const compra = compras.find(
-      (item) =>
-        item.status === 'APROVADA' &&
-        !ordensCompra.some((ordem) => ordem.compra === item.numero),
-    )
+      setUsuarios(usuariosData)
+      setFornecedores(fornecedoresData)
+      setContatosFornecedor(contatosData)
+      setGrupos(gruposData)
+      setItens(itensData)
+      setSolicitacoes(solicitacoesDetalhadas)
+      setCotacoes(cotacoesDetalhadas)
+      setCompras(comprasData)
+      setOrdensCompra(ordensData)
+      syncFormDefaults({
+        usuariosData,
+        fornecedoresData,
+        gruposData,
+        itensData,
+        solicitacoesData: solicitacoesDetalhadas,
+        cotacoesData: cotacoesDetalhadas,
+      })
 
-    if (!compra) {
-      return
+      if (successMessage || !silent) {
+        setActionFeedback(successMessage || 'Dados carregados do backend.')
+      }
+    } catch (error) {
+      setActionFeedback(`Falha ao carregar dados: ${error.message}`)
+    } finally {
+      if (!silent) {
+        setLoadingData(false)
+      }
     }
-
-    const nextOrdemId = Math.max(...ordensCompra.map((item) => item.id)) + 1
-    setOrdensCompra((current) => [
-      {
-        id: nextOrdemId,
-        numero: `OC-2026-${String(nextOrdemId).padStart(6, '0')}`,
-        compra: compra.numero,
-        fornecedor: compra.fornecedor,
-        status: 'GERADA',
-        envio: 'PENDENTE',
-        total: compra.total,
-      },
-      ...current,
-    ])
   }
 
   async function checkApi() {
     setApiStatus({
-      label: 'Consultando API',
+      label: 'Checando API',
       tone: 'warning',
-      detail: `Chamando ${API_BASE_URL}/health`,
+      detail: `Chamando ${API_BASE_URL}${API_ROUTES.health}`,
     })
 
     try {
-      const health = await comprasApi.health()
+      const response = await comprasApi.health()
+
       setApiStatus({
-        label: 'API conectada',
+        label: 'API funcionando',
         tone: 'success',
-        detail: `Resposta do backend: ${health?.status || 'ok'}`,
+        detail: `GET /health respondeu ${response?.status || 'ok'}.`,
       })
     } catch (error) {
       setApiStatus({
-        label: 'API indisponivel',
+        label: 'API fora do ar',
         tone: 'danger',
         detail: error.message,
       })
     }
   }
 
+  async function handleCreateSolicitacao(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      const observacoes = [
+        draft.observacoes,
+        `Centro de custo: ${draft.centroCusto}`,
+        `Prioridade: ${draft.prioridade}`,
+      ]
+        .filter(Boolean)
+        .join(' | ')
+      const solicitacao = await comprasApi.criarSolicitacao({
+        solicitante_id: Number(draft.solicitanteId),
+        observacoes,
+      })
+
+      await comprasApi.adicionarItemSolicitacao(solicitacao.id, {
+        item_id: Number(draft.itemId),
+        quantidade: Number(draft.quantidade),
+        descricao_necessidade: draft.descricaoNecessidade,
+        observacoes: draft.observacoes || null,
+      })
+
+      await loadBackendData({
+        silent: true,
+        successMessage: `${solicitacaoNumero(solicitacao)} criada no backend.`,
+      })
+      setActiveTab('solicitacoes')
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel criar solicitacao: ${error.message}`)
+    }
+  }
+
+  async function enviarSolicitacaoParaCotacao(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      let solicitacaoId = Number(envioCotacao.solicitacaoId)
+
+      if (!selectedEnvioSolicitacao) {
+        throw new Error('Selecione uma solicitacao.')
+      }
+
+      if (envioCotacao.fornecedorIds.length < 1) {
+        throw new Error('Selecione ao menos um fornecedor.')
+      }
+
+      if (selectedEnvioSolicitacao.status === 'ABERTA') {
+        await comprasApi.decidirSolicitacao(solicitacaoId, {
+          aprovador_id: Number(envioCotacao.usuarioId),
+          decisao: 'APROVADO',
+          observacao: 'Solicitacao aprovada para cotacao pelo prototipo.',
+        })
+      }
+
+      const cotacao = await comprasApi.criarCotacao({
+        solicitacao_id: solicitacaoId,
+        criado_por: Number(envioCotacao.usuarioId),
+        observacoes: envioCotacao.observacoes,
+      })
+
+      for (const fornecedorId of envioCotacao.fornecedorIds) {
+        const fornecedorCotacao = await comprasApi.adicionarFornecedorCotacao(cotacao.id, {
+          fornecedor_id: Number(fornecedorId),
+          usuario_id: Number(envioCotacao.usuarioId),
+        })
+
+        await comprasApi.marcarEnvioFornecedorCotacao(cotacao.id, fornecedorCotacao.id, {
+          usuario_id: Number(envioCotacao.usuarioId),
+        })
+      }
+
+      await loadBackendData({
+        silent: true,
+        successMessage: `${cotacaoNumero(cotacao)} criada e enviada aos fornecedores.`,
+      })
+      setActiveTab('cotacoes')
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel enviar cotacao: ${error.message}`)
+    }
+  }
+
+  async function handleRetornoCotacaoSubmit(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      if (!selectedRetornoCotacao || !selectedRetornoFornecedor) {
+        throw new Error('Selecione uma cotacao e um fornecedor.')
+      }
+
+      if (retornoCotacao.status === 'RESPONDIDO') {
+        await comprasApi.registrarRespostaCotacao(
+          selectedRetornoCotacao.id,
+          selectedRetornoFornecedor.id,
+          {
+            prazo_entrega: retornoCotacao.prazoEntrega,
+            forma_pagamento: retornoCotacao.formaPagamento,
+            observacoes: retornoCotacao.observacoes,
+            usuario_id: Number(defaultUsuarioId || envioCotacao.usuarioId),
+            itens: retornoCotacao.itens.map((item) => ({
+              solicitacao_item_id: Number(item.solicitacaoItemId),
+              status_item: item.statusItem,
+              quantidade:
+                item.statusItem === 'INDISPONIVEL' ? null : Number(item.quantidade || 0),
+              valor_unitario:
+                item.statusItem === 'INDISPONIVEL' ? null : Number(item.valorUnitario || 0),
+              observacoes: item.observacoes || null,
+            })),
+          },
+        )
+      } else {
+        await comprasApi.atualizarFornecedorCotacaoStatus(
+          selectedRetornoCotacao.id,
+          selectedRetornoFornecedor.id,
+          {
+            status: retornoCotacao.status,
+            observacoes: retornoCotacao.observacoes,
+            usuario_id: Number(defaultUsuarioId || envioCotacao.usuarioId),
+          },
+        )
+      }
+
+      await loadBackendData({
+        silent: true,
+        successMessage: `Retorno de ${fornecedorNome(selectedRetornoFornecedor)} registrado.`,
+      })
+      setActiveTab('retorno-cotacao')
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel registrar retorno: ${error.message}`)
+    }
+  }
+
+  async function aprovarCotacao(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      if (!selectedAprovacaoCotacao) {
+        throw new Error('Selecione uma cotacao.')
+      }
+
+      if (aprovacaoCotacao.decisao === 'REPROVAR') {
+        await comprasApi.atualizarCotacaoStatus(selectedAprovacaoCotacao.id, {
+          status: 'REPROVADA',
+          usuario_id: Number(aprovacaoCotacao.usuarioId),
+          observacao: aprovacaoCotacao.observacao,
+        })
+        await loadBackendData({
+          silent: true,
+          successMessage: `${cotacaoNumero(selectedAprovacaoCotacao)} reprovada.`,
+        })
+        setActiveTab('cotacoes')
+        return
+      }
+
+      if (!selectedAprovacaoFornecedor) {
+        throw new Error('Selecione um fornecedor com resposta registrada.')
+      }
+
+      await comprasApi.atualizarCotacaoStatus(selectedAprovacaoCotacao.id, {
+        status: 'APROVADA',
+        usuario_id: Number(aprovacaoCotacao.usuarioId),
+        observacao: aprovacaoCotacao.observacao,
+      })
+
+      const compra = await comprasApi.criarCompra({
+        cotacao_id: selectedAprovacaoCotacao.id,
+        criado_por: Number(aprovacaoCotacao.usuarioId),
+        observacoes: aprovacaoCotacao.observacao,
+      })
+      const fornecedorCompra = await comprasApi.adicionarFornecedorCompra(compra.id, {
+        fornecedor_id: Number(selectedAprovacaoFornecedor.fornecedor_id),
+        usuario_id: Number(aprovacaoCotacao.usuarioId),
+        justificativas: ['MENOR_PRECO'],
+        justificativa_texto: aprovacaoCotacao.observacao,
+        prazo_entrega: selectedAprovacaoFornecedor.prazo_entrega,
+        forma_pagamento: selectedAprovacaoFornecedor.forma_pagamento,
+      })
+
+      for (const item of selectedAprovacaoFornecedor.itens || []) {
+        if (item.status_item !== 'DISPONIVEL') {
+          continue
+        }
+
+        await comprasApi.adicionarItemCompra(compra.id, fornecedorCompra.id, {
+          solicitacao_item_id: Number(item.solicitacao_item_id),
+          quantidade_pedida: Number(item.quantidade || 0),
+          usuario_id: Number(aprovacaoCotacao.usuarioId),
+        })
+      }
+
+      await comprasApi.enviarCompraAprovacao(compra.id, {
+        usuario_id: Number(aprovacaoCotacao.usuarioId),
+        observacao: 'Compra enviada para aprovacao pelo prototipo.',
+      })
+      await comprasApi.aprovarCompra(compra.id, {
+        aprovador_id: Number(aprovacaoCotacao.usuarioId),
+        observacao: aprovacaoCotacao.observacao,
+      })
+
+      await loadBackendData({
+        silent: true,
+        successMessage: `${compraNumero(compra)} criada e aprovada no backend.`,
+      })
+      setActiveTab('compras')
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel aprovar cotacao: ${error.message}`)
+    }
+  }
+
+  async function createOrdemCompra() {
+    setActionFeedback('')
+
+    try {
+      if (!compraFornecedorElegivel) {
+        throw new Error('Nao ha compra aprovada sem ordem ativa.')
+      }
+
+      const ordem = await comprasApi.criarOrdemCompra({
+        compra_fornecedor_id: Number(compraFornecedorElegivel.fornecedor.id),
+        usuario_id: Number(defaultUsuarioId),
+        observacoes: 'Ordem gerada pelo prototipo.',
+      })
+
+      await loadBackendData({
+        silent: true,
+        successMessage: `${ordem.numero_oc || resourceCode('OC', ordem.id)} gerada no backend.`,
+      })
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel gerar ordem de compra: ${error.message}`)
+    }
+  }
+
+  async function handleCreateFornecedor(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      const fornecedor = await comprasApi.criarFornecedor({
+        cnpj: fornecedorForm.cnpj,
+        razao_social: fornecedorForm.razaoSocial,
+        nome_fantasia: fornecedorForm.nomeFantasia || null,
+        telefone: fornecedorForm.telefone || null,
+        email: fornecedorForm.email || null,
+        status: 'ATIVO',
+      })
+
+      setFornecedorForm({
+        cnpj: '',
+        razaoSocial: '',
+        nomeFantasia: '',
+        telefone: '',
+        email: '',
+      })
+      setContatoForm((current) => ({
+        ...current,
+        fornecedorId: String(fornecedor.id),
+      }))
+      await loadBackendData({
+        silent: true,
+        successMessage: `Fornecedor ${fornecedorNome(fornecedor)} cadastrado.`,
+      })
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel cadastrar fornecedor: ${error.message}`)
+    }
+  }
+
+  async function handleCreateContato(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      if (!contatoForm.fornecedorId) {
+        throw new Error('Cadastre ou selecione um fornecedor.')
+      }
+
+      const contato = await comprasApi.criarContatoFornecedor(contatoForm.fornecedorId, {
+        nome: contatoForm.nome,
+        cargo: contatoForm.cargo || null,
+        telefone: contatoForm.telefone || null,
+        email: contatoForm.email || null,
+      })
+
+      setContatoForm((current) => ({
+        ...current,
+        nome: '',
+        cargo: '',
+        telefone: '',
+        email: '',
+      }))
+      await loadBackendData({
+        silent: true,
+        successMessage: `Contato ${contato.nome} cadastrado.`,
+      })
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel cadastrar contato: ${error.message}`)
+    }
+  }
+
+  async function handleCreateGrupo(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      const grupo = await comprasApi.criarGrupo({
+        nome: grupoForm.nome,
+        ativo: true,
+      })
+
+      setGrupoForm({ nome: '' })
+      setItemForm((current) => ({
+        ...current,
+        grupoId: String(grupo.id),
+      }))
+      await loadBackendData({
+        silent: true,
+        successMessage: `Grupo ${grupo.nome} cadastrado.`,
+      })
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel cadastrar grupo: ${error.message}`)
+    }
+  }
+
+  async function handleCreateItem(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      if (!itemForm.grupoId) {
+        throw new Error('Cadastre ou selecione um grupo de item.')
+      }
+
+      const item = await comprasApi.criarItem({
+        codigo: itemForm.codigo,
+        descricao: itemForm.descricao,
+        unidade: itemForm.unidade,
+        classificacao: itemForm.classificacao,
+        grupo_id: Number(itemForm.grupoId),
+        controla_estoque: itemForm.controlaEstoque,
+        ativo: true,
+      })
+
+      setItemForm((current) => ({
+        ...current,
+        codigo: '',
+        descricao: '',
+        unidade: 'UN',
+        classificacao: 'CUSTO',
+        controlaEstoque: false,
+      }))
+      await loadBackendData({
+        silent: true,
+        successMessage: `Item ${item.codigo} cadastrado.`,
+      })
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel cadastrar item: ${error.message}`)
+    }
+  }
+
+  function handleRetornoCotacaoChange(cotacaoId) {
+    const cotacao = cotacoes.find((item) => Number(item.id) === Number(cotacaoId))
+    const firstFornecedor = cotacao?.fornecedores?.[0]
+
+    setRetornoCotacao((current) => ({
+      ...current,
+      cotacaoId,
+      cotacaoFornecedorId: firstFornecedor?.id ? String(firstFornecedor.id) : '',
+      itens: buildRetornoItens(cotacao, solicitacoes),
+    }))
+  }
+
+  function handleAprovacaoCotacaoChange(cotacaoId) {
+    const cotacao = cotacoes.find((item) => Number(item.id) === Number(cotacaoId))
+    const firstFornecedor = (cotacao?.fornecedores || []).find(
+      (fornecedor) => fornecedor.status === 'RESPONDIDO',
+    )
+
+    setAprovacaoCotacao((current) => ({
+      ...current,
+      cotacaoId,
+      fornecedorId: firstFornecedor?.fornecedor_id ? String(firstFornecedor.fornecedor_id) : '',
+    }))
+  }
+
   return (
     <main className="app-shell">
-      <aside className="sidebar" aria-label="Navegacao principal">
+      <aside className="sidebar">
         <div className="brand-block">
-          <span className="brand-mark" aria-hidden="true">
-            SC
-          </span>
+          <span className="brand-mark">SC</span>
           <div>
             <strong>Sistema de Compras</strong>
-            <span>Ambiente preview</span>
+            <span>Prototipo integrado ao backend</span>
           </div>
         </div>
 
-        <nav className="nav-tabs" aria-label="Secoes">
+        <nav className="nav-tabs" aria-label="Navegacao principal">
           {tabs.map((tab) => (
             <button
-              type="button"
               key={tab.id}
+              type="button"
               className={activeTab === tab.id ? 'active' : ''}
               onClick={() => setActiveTab(tab.id)}
             >
@@ -494,60 +1206,48 @@ function App() {
           ))}
         </nav>
 
-        <div className="api-panel">
-          <span className={`status-dot ${apiStatus.tone}`}></span>
+        <section className="api-panel">
+          <span className={`status-dot ${apiStatus.tone}`} />
           <div>
             <strong>{apiStatus.label}</strong>
             <span>{API_BASE_URL}</span>
           </div>
-          <button type="button" onClick={checkApi}>
-            Checar
-          </button>
-        </div>
+        </section>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div>
-            <span className="eyebrow">Fluxo demonstrativo</span>
-            <h1>Compras, cotacoes e ordens em uma esteira</h1>
+            <span className="eyebrow">Compras internas</span>
+            <h1>Fluxo de solicitacao, cotacao, aprovacao e ordem de compra</h1>
           </div>
           <div className="topbar-actions">
-            <button type="button" onClick={() => setActiveTab('enviar-cotacao')}>
-              Tela de envio
+            <button type="button" onClick={() => loadBackendData()} disabled={loadingData}>
+              {loadingData ? 'Carregando...' : 'Atualizar dados'}
             </button>
-            <button type="button" onClick={() => setActiveTab('aprovar-cotacao')}>
-              Tela de aprovacao
-            </button>
-            <button type="button" onClick={() => setActiveTab('retorno-cotacao')}>
-              Lancar retorno
-            </button>
-            <button type="button" className="primary" onClick={createOrdemCompra}>
-              Gerar OC
+            <button type="button" className="primary" onClick={() => setActiveTab('solicitacoes')}>
+              Nova solicitacao
             </button>
           </div>
         </header>
 
-        {activeTab === 'inicio' && (
-          <section className="page-section">
-            <div className="backend-status-screen">
-              <div>
-                <span className="eyebrow">Backend Render</span>
-                <h2>Status da API</h2>
-                <p>
-                  Esta tela chama o endpoint de saude do backend configurado para o
-                  prototipo.
-                </p>
-              </div>
+        {actionFeedback && <div className="success-message">{actionFeedback}</div>}
 
+        {activeTab === 'inicio' && (
+          <div className="page-section">
+            <section className="backend-status-screen">
+              <div>
+                <span className="eyebrow">Backend</span>
+                <h2>Status da API</h2>
+                <p>Esta tela chama o endpoint real configurado para o frontend.</p>
+              </div>
               <div className={`backend-status-card ${apiStatus.tone}`}>
-                <span className={`status-dot ${apiStatus.tone}`}></span>
+                <span className={`status-dot ${apiStatus.tone}`} />
                 <div>
                   <strong>{apiStatus.label}</strong>
                   <span>{apiStatus.detail}</span>
                 </div>
               </div>
-
               <div className="backend-endpoints">
                 <div>
                   <span>Base da API</span>
@@ -555,29 +1255,24 @@ function App() {
                 </div>
                 <div>
                   <span>Health check</span>
-                  <code>{API_BASE_URL}/health</code>
+                  <code>{`${API_BASE_URL}${API_ROUTES.health}`}</code>
                 </div>
               </div>
-
               <div className="form-actions">
                 <button type="button" onClick={checkApi}>
                   Checar novamente
                 </button>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => setActiveTab('painel')}
-                >
-                  Entrar no prototipo
+                <button type="button" className="primary" onClick={() => loadBackendData()}>
+                  Carregar dados
                 </button>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
         )}
 
         {activeTab === 'painel' && (
           <div className="page-section">
-            <section className="metrics-grid" aria-label="Indicadores">
+            <section className="metrics-grid">
               {metrics.map((metric) => (
                 <article className="metric-card" key={metric.label}>
                   <span>{metric.label}</span>
@@ -587,146 +1282,216 @@ function App() {
               ))}
             </section>
 
-            <section className="split-layout">
-              <div className="section-block">
-                <div className="section-heading">
-                  <h2>Esteira de solicitacoes</h2>
-                  <span>{solicitacoes.length} registros</span>
-                </div>
-                <div className="flow-board">
-                  {['ABERTA', 'EM_COTACAO', 'COMPRA_APROVADA'].map((status) => (
-                    <div className="flow-column" key={status}>
-                      <h3>{statusText(status)}</h3>
-                      {solicitacoes
-                        .filter((solicitacao) => solicitacao.status === status)
-                        .map((solicitacao) => (
-                          <button
-                            type="button"
-                            className="request-item"
-                            key={solicitacao.id}
-                            onClick={() => {
-                              if (solicitacao.status === 'ABERTA') {
-                                setEnvioCotacao((current) => ({
-                                  ...current,
-                                  solicitacaoId: solicitacao.id,
-                                }))
-                                setActiveTab('enviar-cotacao')
-                              }
-                            }}
-                          >
-                            <strong>{solicitacao.numero}</strong>
-                            <span>{solicitacao.item}</span>
-                            <small>{formatCurrency(solicitacao.valorEstimado)}</small>
-                          </button>
-                        ))}
-                    </div>
-                  ))}
-                </div>
+            <section className="section-block">
+              <div className="section-heading">
+                <h2>Fluxo atual</h2>
+                <span>dados vindos do backend</span>
               </div>
-
-              <form className="section-block compact-form" onSubmit={handleCreateSolicitacao}>
-                <div className="section-heading">
-                  <h2>Nova solicitacao</h2>
-                  <span>Demo local</span>
-                </div>
-                <label>
-                  Item
-                  <select
-                    value={draft.item}
-                    onChange={(event) =>
-                      setDraft((current) => ({ ...current, item: event.target.value }))
-                    }
-                  >
-                    {demoItens.map((item) => (
-                      <option key={item.id} value={item.descricao}>
-                        {item.descricao}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Quantidade
-                  <input
-                    min="1"
-                    type="number"
-                    value={draft.quantidade}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        quantidade: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Centro de custo
-                  <input
-                    value={draft.centroCusto}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        centroCusto: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Prioridade
-                  <select
-                    value={draft.prioridade}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        prioridade: event.target.value,
-                      }))
-                    }
-                  >
-                    <option>Normal</option>
-                    <option>Media</option>
-                    <option>Alta</option>
-                  </select>
-                </label>
-                <button type="submit" className="primary">
-                  Criar solicitacao
-                </button>
-              </form>
+              <div className="flow-board">
+                {[
+                  ['ABERTA', 'Solicitacoes abertas'],
+                  ['EM_COTACAO', 'Em cotacao'],
+                  ['APROVADA', 'Aprovadas'],
+                ].map(([status, title]) => (
+                  <div className="flow-column" key={status}>
+                    <h3>{title}</h3>
+                    {solicitacoes
+                      .filter((solicitacao) => solicitacao.status === status)
+                      .slice(0, 4)
+                      .map((solicitacao) => (
+                        <button
+                          className="request-item"
+                          type="button"
+                          key={solicitacao.id}
+                          onClick={() => setActiveTab('solicitacoes')}
+                        >
+                          <strong>{solicitacaoNumero(solicitacao)}</strong>
+                          <span>{solicitacaoPrincipalItem(solicitacao)}</span>
+                          <small>{statusText(solicitacao.status)}</small>
+                        </button>
+                      ))}
+                  </div>
+                ))}
+              </div>
             </section>
           </div>
         )}
 
         {activeTab === 'solicitacoes' && (
-          <TableSection
-            title="Solicitacoes"
-            subtitle="Pedidos de materiais e servicos"
-            rows={solicitacoes}
-            columns={[
-              ['numero', 'Numero'],
-              ['solicitante', 'Solicitante'],
-              ['centroCusto', 'Centro de custo'],
-              ['item', 'Item'],
-              ['quantidade', 'Qtd.'],
-              ['prioridade', 'Prioridade'],
-              ['valorEstimado', 'Estimado', formatCurrency],
-              ['status', 'Status', StatusBadge],
-            ]}
-          />
+          <div className="page-section">
+            <div className="split-layout">
+              <section className="section-block">
+                <div className="section-heading">
+                  <h2>Nova solicitacao</h2>
+                  <span>POST /solicitacoes</span>
+                </div>
+                <form className="compact-form" onSubmit={handleCreateSolicitacao}>
+                  <label>
+                    Solicitante
+                    <select
+                      value={draft.solicitanteId}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          solicitanteId: event.target.value,
+                        }))
+                      }
+                    >
+                      {usuariosAtivos.map((usuario) => (
+                        <option key={usuario.id} value={usuario.id}>
+                          {usuarioNome(usuario)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Item
+                    <select
+                      value={draft.itemId}
+                      onChange={(event) => {
+                        const selectedItem = itensAtivos.find(
+                          (item) => Number(item.id) === Number(event.target.value),
+                        )
+
+                        setDraft((current) => ({
+                          ...current,
+                          itemId: event.target.value,
+                          descricaoNecessidade: selectedItem?.descricao || '',
+                        }))
+                      }}
+                    >
+                      {itensAtivos.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.codigo ? `${item.codigo} - ${item.descricao}` : item.descricao}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="form-grid">
+                    <label>
+                      Quantidade
+                      <input
+                        type="number"
+                        min="1"
+                        value={draft.quantidade}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            quantidade: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      Prioridade
+                      <select
+                        value={draft.prioridade}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            prioridade: event.target.value,
+                          }))
+                        }
+                      >
+                        <option>Normal</option>
+                        <option>Alta</option>
+                        <option>Urgente</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Centro de custo
+                    <input
+                      value={draft.centroCusto}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          centroCusto: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Necessidade
+                    <textarea
+                      value={draft.descricaoNecessidade}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          descricaoNecessidade: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Observacoes
+                    <textarea
+                      value={draft.observacoes}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          observacoes: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={!draft.solicitanteId || !draft.itemId}
+                  >
+                    Criar solicitacao
+                  </button>
+                </form>
+              </section>
+
+              <section className="section-block">
+                <div className="section-heading">
+                  <h2>Base pronta</h2>
+                  <span>cadastros necessarios</span>
+                </div>
+                <SummaryCard
+                  rows={[
+                    ['Usuarios ativos', usuariosAtivos.length],
+                    ['Fornecedores ativos', fornecedoresAtivos.length],
+                    ['Itens ativos', itensAtivos.length],
+                    ['Grupos', grupos.length],
+                  ]}
+                />
+              </section>
+            </div>
+
+            <TableSection
+              title="Solicitacoes"
+              subtitle="Registro carregado pela API"
+              rows={solicitacaoRows}
+              columns={[
+                ['numero', 'Numero'],
+                ['solicitante', 'Solicitante'],
+                ['item', 'Item'],
+                ['quantidade', 'Qtd.'],
+                ['status', 'Status', StatusBadge],
+                ['data', 'Data'],
+              ]}
+            />
+          </div>
         )}
 
         {activeTab === 'enviar-cotacao' && (
           <ActionScreen
             title="Enviar solicitacao para cotacao"
-            subtitle="Selecione uma solicitacao aberta e os fornecedores que devem receber a rodada."
-            endpoint="POST /cotacoes + POST /cotacoes/:id/fornecedores"
+            subtitle="Cria a rodada de cotacao e convida fornecedores"
+            endpoint="POST /cotacoes"
           >
             <form className="action-form" onSubmit={enviarSolicitacaoParaCotacao}>
               <div className="action-grid">
                 <section className="section-block">
                   <div className="section-heading">
                     <h2>Solicitacao</h2>
-                    <span>{solicitacoesAbertas.length} abertas</span>
+                    <span>{solicitacoesCotaveis.length} disponiveis</span>
                   </div>
                   <label>
-                    Solicitacao aberta
+                    Solicitar cotacao para
                     <select
                       value={envioCotacao.solicitacaoId}
                       onChange={(event) =>
@@ -736,87 +1501,45 @@ function App() {
                         }))
                       }
                     >
-                      {solicitacoesAbertas.map((solicitacao) => (
+                      {solicitacoesCotaveis.map((solicitacao) => (
                         <option key={solicitacao.id} value={solicitacao.id}>
-                          {solicitacao.numero} - {solicitacao.item}
+                          {solicitacaoNumero(solicitacao)} - {solicitacaoPrincipalItem(solicitacao)}
                         </option>
                       ))}
                     </select>
                   </label>
-
                   {selectedEnvioSolicitacao ? (
                     <SummaryCard
                       rows={[
-                        ['Solicitante', selectedEnvioSolicitacao.solicitante],
-                        ['Centro de custo', selectedEnvioSolicitacao.centroCusto],
-                        [
-                          'Quantidade',
-                          `${selectedEnvioSolicitacao.quantidade} ${selectedEnvioSolicitacao.unidade}`,
-                        ],
-                        [
-                          'Estimado',
-                          formatCurrency(selectedEnvioSolicitacao.valorEstimado),
-                        ],
-                        ['Prioridade', selectedEnvioSolicitacao.prioridade],
+                        ['Numero', solicitacaoNumero(selectedEnvioSolicitacao)],
+                        ['Status', statusText(selectedEnvioSolicitacao.status)],
+                        ['Item', solicitacaoPrincipalItem(selectedEnvioSolicitacao)],
+                        ['Quantidade', solicitacaoQuantidade(selectedEnvioSolicitacao)],
                       ]}
                     />
                   ) : (
-                    <EmptyState text="Nao ha solicitacoes abertas para cotacao." />
+                    <EmptyState text="Nao ha solicitacao aprovada para cotacao." />
                   )}
-                </section>
-
-                <section className="section-block">
-                  <div className="section-heading">
-                    <h2>Fornecedores</h2>
-                    <span>{envioCotacao.fornecedorIds.length} selecionados</span>
-                  </div>
-                  <div className="check-list">
-                    {demoFornecedores.map((fornecedor) => (
-                      <label className="check-row" key={fornecedor.id}>
-                        <input
-                          type="checkbox"
-                          checked={envioCotacao.fornecedorIds.includes(
-                            String(fornecedor.id),
-                          )}
-                          onChange={(event) => {
-                            const fornecedorId = String(fornecedor.id)
-                            setEnvioCotacao((current) => ({
-                              ...current,
-                              fornecedorIds: event.target.checked
-                                ? [...current.fornecedorIds, fornecedorId]
-                                : current.fornecedorIds.filter((id) => id !== fornecedorId),
-                            }))
-                          }}
-                        />
-                        <span>
-                          <strong>{fornecedor.razaoSocial}</strong>
-                          <small>
-                            {fornecedor.classificacao} · prazo medio {fornecedor.prazoMedio}
-                          </small>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </section>
-              </div>
-
-              <section className="section-block">
-                <div className="form-grid">
-                  <label>
-                    Prazo para resposta
-                    <input
-                      type="date"
-                      value={envioCotacao.prazoResposta}
+                  <label className="full-width-label">
+                    Usuario da acao
+                    <select
+                      value={envioCotacao.usuarioId}
                       onChange={(event) =>
                         setEnvioCotacao((current) => ({
                           ...current,
-                          prazoResposta: event.target.value,
+                          usuarioId: event.target.value,
                         }))
                       }
-                    />
+                    >
+                      {usuariosAtivos.map((usuario) => (
+                        <option key={usuario.id} value={usuario.id}>
+                          {usuarioNome(usuario)}
+                        </option>
+                      ))}
+                    </select>
                   </label>
-                  <label>
-                    Observacoes para fornecedores
+                  <label className="full-width-label">
+                    Observacoes
                     <textarea
                       value={envioCotacao.observacoes}
                       onChange={(event) =>
@@ -827,22 +1550,55 @@ function App() {
                       }
                     />
                   </label>
-                </div>
-                <div className="form-actions">
-                  <button type="button" onClick={() => setActiveTab('solicitacoes')}>
-                    Voltar
-                  </button>
-                  <button
-                    type="submit"
-                    className="primary"
-                    disabled={
-                      !selectedEnvioSolicitacao || envioCotacao.fornecedorIds.length === 0
-                    }
-                  >
-                    Criar cotacao
-                  </button>
-                </div>
-              </section>
+                </section>
+
+                <section className="section-block">
+                  <div className="section-heading">
+                    <h2>Fornecedores</h2>
+                    <span>convite da cotacao</span>
+                  </div>
+                  <div className="check-list">
+                    {fornecedoresAtivos.map((fornecedor) => (
+                      <label className="check-row" key={fornecedor.id}>
+                        <input
+                          type="checkbox"
+                          checked={envioCotacao.fornecedorIds.includes(String(fornecedor.id))}
+                          onChange={(event) => {
+                            setEnvioCotacao((current) => ({
+                              ...current,
+                              fornecedorIds: event.target.checked
+                                ? [...current.fornecedorIds, String(fornecedor.id)]
+                                : current.fornecedorIds.filter(
+                                    (id) => id !== String(fornecedor.id),
+                                  ),
+                            }))
+                          }}
+                        />
+                        <span>
+                          <strong>{fornecedorNome(fornecedor)}</strong>
+                          <small>{fornecedor.cnpj || fornecedor.email || 'Sem contato'}</small>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="form-actions">
+                    <button type="button" onClick={() => setActiveTab('solicitacoes')}>
+                      Voltar
+                    </button>
+                    <button
+                      type="submit"
+                      className="primary"
+                      disabled={
+                        !selectedEnvioSolicitacao ||
+                        envioCotacao.fornecedorIds.length < 1 ||
+                        !envioCotacao.usuarioId
+                      }
+                    >
+                      Criar e enviar cotacao
+                    </button>
+                  </div>
+                </section>
+              </div>
             </form>
           </ActionScreen>
         )}
@@ -851,29 +1607,15 @@ function App() {
           <div className="page-section">
             <TableSection
               title="Cotacoes"
-              subtitle="Rodadas abertas e comparativos"
-              rows={cotacoes}
+              subtitle="Rodadas e respostas registradas"
+              rows={cotacaoRows}
               columns={[
                 ['numero', 'Numero'],
                 ['solicitacao', 'Solicitacao'],
                 ['rodada', 'Rodada'],
-                ['fornecedores', 'Fornecedores'],
                 ['respostas', 'Respostas'],
                 ['melhorValor', 'Melhor valor', formatCurrency],
                 ['status', 'Status', StatusBadge],
-              ]}
-            />
-            <TableSection
-              title="Retornos lancados"
-              subtitle="Respostas registradas por fornecedor"
-              rows={cotacaoRespostas}
-              columns={[
-                ['fornecedor', 'Fornecedor'],
-                ['status', 'Status', StatusBadge],
-                ['prazoEntrega', 'Prazo'],
-                ['formaPagamento', 'Pagamento'],
-                ['total', 'Total', formatCurrency],
-                ['anexo', 'Anexo'],
               ]}
             />
           </div>
@@ -881,121 +1623,89 @@ function App() {
 
         {activeTab === 'retorno-cotacao' && (
           <ActionScreen
-            title="Lancar retorno da cotacao"
-            subtitle="Registre a resposta do fornecedor com disponibilidade, valores e condicoes comerciais."
-            endpoint="POST /cotacoes/:id/fornecedores/:cotacaoFornecedorId/respostas"
+            title="Lancamento de retorno da cotacao"
+            subtitle="Registra a resposta recebida do fornecedor"
+            endpoint="POST /cotacoes/:id/fornecedores/:fornecedorId/respostas"
           >
             <form className="action-form" onSubmit={handleRetornoCotacaoSubmit}>
               <div className="action-grid">
                 <section className="section-block">
                   <div className="section-heading">
-                    <h2>Cotacao e fornecedor</h2>
-                    <span>{cotacoesEmAndamento.length} em andamento</span>
+                    <h2>Cotacao</h2>
+                    <span>{cotacoesComFornecedores.length} com fornecedores</span>
                   </div>
                   <label>
                     Cotacao
                     <select
                       value={retornoCotacao.cotacaoId}
-                      onChange={(event) => {
-                        const cotacaoId = Number(event.target.value)
-                        const cotacao = cotacoes.find((item) => item.id === cotacaoId)
-
-                        setRetornoCotacao((current) => ({
-                          ...current,
-                          cotacaoId,
-                          itens: buildRetornoItens(cotacao, solicitacoes),
-                        }))
-                        setRetornoFeedback('')
-                      }}
+                      onChange={(event) => handleRetornoCotacaoChange(event.target.value)}
                     >
-                      {cotacoesEmAndamento.map((cotacao) => (
+                      {cotacoesComFornecedores.map((cotacao) => (
                         <option key={cotacao.id} value={cotacao.id}>
-                          {cotacao.numero} - {cotacao.solicitacao}
+                          {cotacaoNumero(cotacao)} - {resourceCode('SC', cotacao.solicitacao_id)}
                         </option>
                       ))}
                     </select>
                   </label>
-                  <label>
-                    Fornecedor
-                    <select
-                      value={retornoCotacao.fornecedorId}
-                      onChange={(event) => {
-                        const fornecedorId = event.target.value
-                        const respostaExistente = cotacaoRespostas.find(
-                          (item) =>
-                            item.cotacaoId === Number(retornoCotacao.cotacaoId) &&
-                            item.fornecedorId === Number(fornecedorId),
-                        )
-
-                        setRetornoCotacao((current) => ({
-                          ...current,
-                          fornecedorId,
-                          status: respostaExistente?.status || 'RESPONDIDO',
-                          prazoEntrega: respostaExistente?.prazoEntrega || '5 dias',
-                          formaPagamento: respostaExistente?.formaPagamento || '30 dias',
-                          observacoes:
-                            respostaExistente?.observacoes ||
-                            'Condicoes recebidas por email e lancadas manualmente.',
-                          anexo: respostaExistente?.anexo === '-' ? '' : respostaExistente?.anexo || '',
-                          itens:
-                            respostaExistente?.itens ||
-                            buildRetornoItens(selectedRetornoCotacao, solicitacoes),
-                        }))
-                        setRetornoFeedback('')
-                      }}
-                    >
-                      {demoFornecedores.map((fornecedor) => (
-                        <option key={fornecedor.id} value={fornecedor.id}>
-                          {fornecedor.razaoSocial}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
                   {selectedRetornoSolicitacao ? (
                     <SummaryCard
                       rows={[
-                        ['Solicitacao', selectedRetornoSolicitacao.numero],
-                        ['Item', selectedRetornoSolicitacao.item],
-                        [
-                          'Quantidade',
-                          `${selectedRetornoSolicitacao.quantidade} ${selectedRetornoSolicitacao.unidade}`,
-                        ],
-                        ['Estimado', formatCurrency(selectedRetornoSolicitacao.valorEstimado)],
-                        ['Respostas lancadas', respostasDaCotacao.length],
+                        ['Solicitacao', solicitacaoNumero(selectedRetornoSolicitacao)],
+                        ['Item', solicitacaoPrincipalItem(selectedRetornoSolicitacao)],
+                        ['Quantidade', solicitacaoQuantidade(selectedRetornoSolicitacao)],
+                        ['Status cotacao', statusText(selectedRetornoCotacao?.status)],
                       ]}
                     />
                   ) : (
-                    <EmptyState text="Nao ha cotacoes em andamento para lancar retorno." />
+                    <EmptyState text="Nao ha cotacao com fornecedor para registrar retorno." />
                   )}
                 </section>
 
                 <section className="section-block">
                   <div className="section-heading">
-                    <h2>Condicoes comerciais</h2>
-                    <span>{formatCurrency(retornoTotal)}</span>
+                    <h2>Fornecedor</h2>
+                    <span>resposta recebida</span>
                   </div>
-                  <div className="form-grid single-column">
-                    <label>
-                      Status do retorno
-                      <select
-                        value={retornoCotacao.status}
-                        onChange={(event) =>
-                          setRetornoCotacao((current) => ({
-                            ...current,
-                            status: event.target.value,
-                          }))
-                        }
-                      >
-                        <option value="RESPONDIDO">Respondido</option>
-                        <option value="RECUSADO">Recusado</option>
-                        <option value="SEM_RESPOSTA">Sem resposta</option>
-                      </select>
-                    </label>
+                  <label>
+                    Fornecedor da cotacao
+                    <select
+                      value={retornoCotacao.cotacaoFornecedorId}
+                      onChange={(event) =>
+                        setRetornoCotacao((current) => ({
+                          ...current,
+                          cotacaoFornecedorId: event.target.value,
+                        }))
+                      }
+                    >
+                      {(selectedRetornoCotacao?.fornecedores || []).map((fornecedor) => (
+                        <option key={fornecedor.id} value={fornecedor.id}>
+                          {fornecedorNome(fornecedor)} - {statusText(fornecedor.status)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Status do retorno
+                    <select
+                      value={retornoCotacao.status}
+                      onChange={(event) =>
+                        setRetornoCotacao((current) => ({
+                          ...current,
+                          status: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="RESPONDIDO">Respondido</option>
+                      <option value="RECUSADO">Recusado</option>
+                      <option value="SEM_RESPOSTA">Sem resposta</option>
+                    </select>
+                  </label>
+                  <div className="form-grid">
                     <label>
                       Prazo de entrega
                       <input
                         value={retornoCotacao.prazoEntrega}
+                        disabled={retornoCotacao.status !== 'RESPONDIDO'}
                         onChange={(event) =>
                           setRetornoCotacao((current) => ({
                             ...current,
@@ -1008,6 +1718,7 @@ function App() {
                       Forma de pagamento
                       <input
                         value={retornoCotacao.formaPagamento}
+                        disabled={retornoCotacao.status !== 'RESPONDIDO'}
                         onChange={(event) =>
                           setRetornoCotacao((current) => ({
                             ...current,
@@ -1016,99 +1727,100 @@ function App() {
                         }
                       />
                     </label>
-                    <label>
-                      Nome do anexo
-                      <input
-                        placeholder="orcamento-fornecedor.pdf"
-                        value={retornoCotacao.anexo}
-                        onChange={(event) =>
-                          setRetornoCotacao((current) => ({
-                            ...current,
-                            anexo: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
                   </div>
+                  <label>
+                    Observacoes
+                    <textarea
+                      value={retornoCotacao.observacoes}
+                      onChange={(event) =>
+                        setRetornoCotacao((current) => ({
+                          ...current,
+                          observacoes: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
                 </section>
               </div>
 
               <section className="section-block">
                 <div className="section-heading">
-                  <h2>Itens respondidos</h2>
-                  <span>Total {formatCurrency(retornoTotal)}</span>
+                  <h2>Itens cotados</h2>
+                  <span>{formatCurrency(retornoTotal)}</span>
                 </div>
-                <div className="quote-items">
-                  {retornoCotacao.itens.map((item, index) => (
-                    <div className="quote-item-row" key={`${item.descricao}-${index}`}>
-                      <div>
-                        <strong>{item.descricao}</strong>
-                        <span>
-                          {item.quantidade} {item.unidade}
-                        </span>
-                      </div>
-                      <label>
-                        Disponibilidade
-                        <select
-                          value={item.statusItem}
-                          onChange={(event) =>
-                            setRetornoCotacao((current) => ({
-                              ...current,
-                              itens: current.itens.map((candidate, candidateIndex) =>
-                                candidateIndex === index
-                                  ? { ...candidate, statusItem: event.target.value }
-                                  : candidate,
-                              ),
-                            }))
-                          }
-                        >
-                          <option value="DISPONIVEL">Disponivel</option>
-                          <option value="INDISPONIVEL">Indisponivel</option>
-                        </select>
-                      </label>
-                      <label>
-                        Valor unitario
-                        <input
-                          min="0"
-                          step="0.01"
-                          type="number"
-                          value={item.valorUnitario}
-                          disabled={item.statusItem === 'INDISPONIVEL'}
-                          onChange={(event) =>
-                            setRetornoCotacao((current) => ({
-                              ...current,
-                              itens: current.itens.map((candidate, candidateIndex) =>
-                                candidateIndex === index
-                                  ? { ...candidate, valorUnitario: event.target.value }
-                                  : candidate,
-                              ),
-                            }))
-                          }
-                        />
-                      </label>
-                      <b>
-                        {formatCurrency(
-                          item.statusItem === 'INDISPONIVEL'
-                            ? 0
-                            : Number(item.quantidade || 0) * Number(item.valorUnitario || 0),
-                        )}
-                      </b>
-                    </div>
-                  ))}
-                </div>
-                <label className="full-width-label">
-                  Observacoes do retorno
-                  <textarea
-                    value={retornoCotacao.observacoes}
-                    onChange={(event) =>
-                      setRetornoCotacao((current) => ({
-                        ...current,
-                        observacoes: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                {retornoFeedback && <div className="success-message">{retornoFeedback}</div>}
+                {retornoCotacao.itens.length > 0 ? (
+                  <div className="quote-items">
+                    {retornoCotacao.itens.map((item, index) => {
+                      const disabled = retornoCotacao.status !== 'RESPONDIDO'
+                      const itemTotal =
+                        item.statusItem === 'INDISPONIVEL'
+                          ? 0
+                          : Number(item.quantidade || 0) * Number(item.valorUnitario || 0)
+
+                      return (
+                        <div className="quote-item-row" key={item.solicitacaoItemId || index}>
+                          <div>
+                            <strong>{item.descricao}</strong>
+                            <span>
+                              Solicitado: {item.quantidade} {item.unidade}
+                            </span>
+                          </div>
+                          <label>
+                            Status
+                            <select
+                              value={item.statusItem}
+                              disabled={disabled}
+                              onChange={(event) =>
+                                setRetornoCotacao((current) => ({
+                                  ...current,
+                                  itens: current.itens.map((currentItem, currentIndex) =>
+                                    currentIndex === index
+                                      ? {
+                                          ...currentItem,
+                                          statusItem: event.target.value,
+                                          valorUnitario:
+                                            event.target.value === 'INDISPONIVEL'
+                                              ? ''
+                                              : currentItem.valorUnitario,
+                                        }
+                                      : currentItem,
+                                  ),
+                                }))
+                              }
+                            >
+                              <option value="DISPONIVEL">Disponivel</option>
+                              <option value="INDISPONIVEL">Indisponivel</option>
+                            </select>
+                          </label>
+                          <label>
+                            Valor unitario
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.valorUnitario}
+                              disabled={disabled || item.statusItem === 'INDISPONIVEL'}
+                              onChange={(event) =>
+                                setRetornoCotacao((current) => ({
+                                  ...current,
+                                  itens: current.itens.map((currentItem, currentIndex) =>
+                                    currentIndex === index
+                                      ? { ...currentItem, valorUnitario: event.target.value }
+                                      : currentItem,
+                                  ),
+                                }))
+                              }
+                            />
+                          </label>
+                          <b>{formatCurrency(itemTotal)}</b>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState text="Selecione uma cotacao com itens de solicitacao." />
+                )}
+
                 <div className="form-actions">
                   <button type="button" onClick={() => setActiveTab('cotacoes')}>
                     Voltar
@@ -1116,36 +1828,29 @@ function App() {
                   <button
                     type="submit"
                     className="primary"
-                    disabled={!selectedRetornoCotacao || !selectedRetornoFornecedor}
+                    disabled={!selectedRetornoCotacao || !selectedRetornoFornecedor || !defaultUsuarioId}
                   >
-                    Salvar retorno
+                    Registrar retorno
                   </button>
                 </div>
               </section>
 
-              <section className="table-section">
+              <section className="section-block">
                 <div className="section-heading">
-                  <div>
-                    <h2>Historico da cotacao selecionada</h2>
-                    <span>retornos ja registrados</span>
-                  </div>
-                  <strong>{respostasDaCotacao.length}</strong>
+                  <h2>Retornos ja lancados</h2>
+                  <span>{respostasDaCotacao.length} registros</span>
                 </div>
                 <div className="response-history">
-                  {respostasDaCotacao.length === 0 ? (
-                    <EmptyState text="Nenhum retorno lancado para esta cotacao." />
-                  ) : (
-                    respostasDaCotacao.map((resposta) => (
-                      <article className="response-card" key={resposta.id}>
-                        <div>
-                          <strong>{resposta.fornecedor}</strong>
-                          {StatusBadge(resposta.status)}
-                        </div>
-                        <span>{resposta.prazoEntrega} · {resposta.formaPagamento}</span>
-                        <b>{formatCurrency(resposta.total)}</b>
-                      </article>
-                    ))
-                  )}
+                  {respostasDaCotacao.map((fornecedor) => (
+                    <article className="response-card" key={fornecedor.id}>
+                      <div>
+                        <StatusBadge value={fornecedor.status} />
+                        <span>{fornecedorNome(fornecedor)}</span>
+                      </div>
+                      <span>{fornecedor.prazo_entrega || '-'}</span>
+                      <b>{formatCurrency(cotacaoFornecedorTotal(fornecedor))}</b>
+                    </article>
+                  ))}
                 </div>
               </section>
             </form>
@@ -1155,98 +1860,72 @@ function App() {
         {activeTab === 'aprovar-cotacao' && (
           <ActionScreen
             title="Aprovar cotacao"
-            subtitle="Revise o comparativo, escolha o fornecedor e registre a decisao."
-            endpoint="PATCH /cotacoes/:id/status + POST /compras"
+            subtitle="Escolhe o fornecedor vencedor e cria a compra"
+            endpoint="PATCH /cotacoes/:id/status"
           >
             <form className="action-form" onSubmit={aprovarCotacao}>
               <div className="action-grid">
-                <section className="section-block">
+                <section className="section-block solicitation-context">
                   <div className="section-heading">
-                    <h2>Cotacao em analise</h2>
-                    <span>{cotacoesEmAndamento.length} pendentes</span>
+                    <h2>Cotacao em aprovacao</h2>
+                    <span>{cotacoesParaAprovacao.length} com resposta</span>
                   </div>
                   <label>
                     Cotacao
                     <select
                       value={aprovacaoCotacao.cotacaoId}
-                      onChange={(event) =>
-                        setAprovacaoCotacao((current) => ({
-                          ...current,
-                          cotacaoId: event.target.value,
-                        }))
-                      }
+                      onChange={(event) => handleAprovacaoCotacaoChange(event.target.value)}
                     >
-                      {cotacoesEmAndamento.map((cotacao) => (
+                      {cotacoesParaAprovacao.map((cotacao) => (
                         <option key={cotacao.id} value={cotacao.id}>
-                          {cotacao.numero} - {cotacao.solicitacao}
-                          {solicitacoes.find(
-                            (solicitacao) => solicitacao.numero === cotacao.solicitacao,
-                          )?.item
-                            ? ` - ${solicitacoes.find(
-                                (solicitacao) =>
-                                  solicitacao.numero === cotacao.solicitacao,
-                              )?.item}`
-                            : ''}
+                          {cotacaoNumero(cotacao)} - {resourceCode('SC', cotacao.solicitacao_id)}
                         </option>
                       ))}
                     </select>
                   </label>
-
-                  {selectedAprovacaoCotacao ? (
-                    <SummaryCard
-                      rows={[
-                        ['Solicitacao', selectedAprovacaoCotacao.solicitacao],
-                        ['Rodada', selectedAprovacaoCotacao.rodada],
-                        ['Fornecedores', selectedAprovacaoCotacao.fornecedores],
-                        ['Respostas', selectedAprovacaoCotacao.respostas],
-                        [
-                          'Melhor valor',
-                          formatCurrency(selectedAprovacaoCotacao.melhorValor),
-                        ],
-                      ]}
-                    />
-                  ) : (
-                    <EmptyState text="Nao ha cotacoes em andamento para aprovar." />
-                  )}
-                </section>
-
-                <section className="section-block solicitation-context">
-                  <div className="section-heading">
-                    <h2>Solicitacao vinculada</h2>
-                    <span>{selectedAprovacaoCotacao?.solicitacao || '-'}</span>
-                  </div>
                   {selectedAprovacaoSolicitacao ? (
                     <>
                       <div className="linked-request-title">
-                        <strong>{selectedAprovacaoSolicitacao.item}</strong>
-                        {StatusBadge(selectedAprovacaoSolicitacao.status)}
+                        <strong>{solicitacaoNumero(selectedAprovacaoSolicitacao)}</strong>
+                        <StatusBadge value={selectedAprovacaoSolicitacao.status} />
                       </div>
                       <SummaryCard
                         rows={[
-                          ['Solicitante', selectedAprovacaoSolicitacao.solicitante],
-                          ['Centro de custo', selectedAprovacaoSolicitacao.centroCusto],
-                          [
-                            'Quantidade',
-                            `${selectedAprovacaoSolicitacao.quantidade} ${selectedAprovacaoSolicitacao.unidade}`,
-                          ],
-                          [
-                            'Valor estimado',
-                            formatCurrency(selectedAprovacaoSolicitacao.valorEstimado),
-                          ],
-                          ['Prioridade', selectedAprovacaoSolicitacao.prioridade],
+                          ['Item', solicitacaoPrincipalItem(selectedAprovacaoSolicitacao)],
+                          ['Quantidade', solicitacaoQuantidade(selectedAprovacaoSolicitacao)],
+                          ['Cotacao', cotacaoNumero(selectedAprovacaoCotacao)],
+                          ['Rodada', selectedAprovacaoCotacao?.numero_rodada || 1],
                         ]}
                       />
                     </>
                   ) : (
-                    <EmptyState text="Nao encontrei a solicitacao vinculada a cotacao selecionada." />
+                    <EmptyState text="Nao ha cotacao respondida para aprovar." />
                   )}
                 </section>
 
                 <section className="section-block">
                   <div className="section-heading">
                     <h2>Decisao</h2>
-                    <span>gera compra aprovada</span>
+                    <span>compra gerada no backend</span>
                   </div>
+                  <label>
+                    Usuario aprovador
+                    <select
+                      value={aprovacaoCotacao.usuarioId}
+                      onChange={(event) =>
+                        setAprovacaoCotacao((current) => ({
+                          ...current,
+                          usuarioId: event.target.value,
+                        }))
+                      }
+                    >
+                      {usuariosAtivos.map((usuario) => (
+                        <option key={usuario.id} value={usuario.id}>
+                          {usuarioNome(usuario)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label>
                     Fornecedor vencedor
                     <select
@@ -1258,11 +1937,13 @@ function App() {
                         }))
                       }
                     >
-                      {demoFornecedores.map((fornecedor) => (
-                        <option key={fornecedor.id} value={fornecedor.id}>
-                          {fornecedor.razaoSocial}
-                        </option>
-                      ))}
+                      {(selectedAprovacaoCotacao?.fornecedores || [])
+                        .filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
+                        .map((fornecedor) => (
+                          <option key={fornecedor.id} value={fornecedor.fornecedor_id}>
+                            {fornecedorNome(fornecedor)}
+                          </option>
+                        ))}
                     </select>
                   </label>
                   <label>
@@ -1298,34 +1979,37 @@ function App() {
               <section className="section-block comparison-block">
                 <div className="section-heading">
                   <h2>Comparativo de fornecedores</h2>
-                  <span>dados demonstrativos</span>
+                  <span>respostas reais da cotacao</span>
                 </div>
                 <div className="supplier-comparison">
-                  {demoFornecedores.map((fornecedor, index) => {
-                    const baseValue = selectedAprovacaoCotacao?.melhorValor || 2100
-                    const value = Math.round(baseValue * (1 + index * 0.045))
-
-                    return (
+                  {(selectedAprovacaoCotacao?.fornecedores || [])
+                    .filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
+                    .map((fornecedor) => (
                       <label className="supplier-card" key={fornecedor.id}>
                         <input
                           type="radio"
                           name="fornecedor-vencedor"
-                          checked={aprovacaoCotacao.fornecedorId === String(fornecedor.id)}
+                          checked={
+                            Number(aprovacaoCotacao.fornecedorId) ===
+                            Number(fornecedor.fornecedor_id)
+                          }
                           onChange={() =>
                             setAprovacaoCotacao((current) => ({
                               ...current,
-                              fornecedorId: String(fornecedor.id),
+                              fornecedorId: String(fornecedor.fornecedor_id),
                             }))
                           }
                         />
                         <span>
-                          <strong>{fornecedor.razaoSocial}</strong>
-                          <small>{fornecedor.prazoMedio} · {fornecedor.classificacao}</small>
+                          <strong>{fornecedorNome(fornecedor)}</strong>
+                          <small>
+                            {fornecedor.prazo_entrega || 'Prazo nao informado'} |{' '}
+                            {fornecedor.forma_pagamento || 'Pagamento nao informado'}
+                          </small>
                         </span>
-                        <b>{formatCurrency(value)}</b>
+                        <b>{formatCurrency(cotacaoFornecedorTotal(fornecedor))}</b>
                       </label>
-                    )
-                  })}
+                    ))}
                 </div>
                 <div className="form-actions">
                   <button type="button" onClick={() => setActiveTab('cotacoes')}>
@@ -1335,10 +2019,12 @@ function App() {
                     type="submit"
                     className="primary"
                     disabled={
-                      !selectedAprovacaoCotacao || aprovacaoCotacao.decisao !== 'APROVAR'
+                      !selectedAprovacaoCotacao ||
+                      !aprovacaoCotacao.usuarioId ||
+                      (aprovacaoCotacao.decisao === 'APROVAR' && !selectedAprovacaoFornecedor)
                     }
                   >
-                    Aprovar e gerar compra
+                    Confirmar decisao
                   </button>
                 </div>
               </section>
@@ -1348,15 +2034,42 @@ function App() {
 
         {activeTab === 'compras' && (
           <div className="page-section">
+            <section className="section-block">
+              <div className="section-heading">
+                <div>
+                  <h2>Ordem de compra</h2>
+                  <span>gera OC para uma compra aprovada sem OC ativa</span>
+                </div>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={createOrdemCompra}
+                  disabled={!compraFornecedorElegivel || !defaultUsuarioId}
+                >
+                  Gerar ordem de compra
+                </button>
+              </div>
+              {compraFornecedorElegivel ? (
+                <SummaryCard
+                  rows={[
+                    ['Compra', compraNumero(compraFornecedorElegivel.compra)],
+                    ['Fornecedor', fornecedorNome(compraFornecedorElegivel.fornecedor)],
+                    ['Total', formatCurrency(compraTotal(compraFornecedorElegivel.compra))],
+                  ]}
+                />
+              ) : (
+                <EmptyState text="Nenhuma compra aprovada pendente de ordem." />
+              )}
+            </section>
             <TableSection
               title="Compras"
               subtitle="Escolha de fornecedor e aprovacao"
-              rows={compras}
+              rows={compraRows}
               columns={[
                 ['numero', 'Numero'],
                 ['solicitacao', 'Solicitacao'],
                 ['fornecedor', 'Fornecedor'],
-                ['aprovador', 'Aprovador'],
+                ['aprovador', 'Responsavel'],
                 ['total', 'Total', formatCurrency],
                 ['status', 'Status', StatusBadge],
               ]}
@@ -1364,7 +2077,7 @@ function App() {
             <TableSection
               title="Ordens de compra"
               subtitle="OCs geradas para envio"
-              rows={ordensCompra}
+              rows={ordemRows}
               columns={[
                 ['numero', 'Numero'],
                 ['compra', 'Compra'],
@@ -1377,12 +2090,339 @@ function App() {
           </div>
         )}
 
+        {activeTab === 'cadastro-base' && (
+          <ActionScreen
+            title="Cadastrar fornecedores, contatos e itens"
+            subtitle="Cria os cadastros minimos para alimentar o fluxo"
+            endpoint="POST /fornecedores, /fornecedores/:id/contatos, /grupos, /itens"
+          >
+            <div className="action-grid">
+              <section className="section-block">
+                <div className="section-heading">
+                  <div>
+                    <h2>Fornecedor</h2>
+                    <span>POST /fornecedores</span>
+                  </div>
+                  <strong>{fornecedores.length}</strong>
+                </div>
+                <form className="compact-form" onSubmit={handleCreateFornecedor}>
+                  <label>
+                    CNPJ
+                    <input
+                      value={fornecedorForm.cnpj}
+                      onChange={(event) =>
+                        setFornecedorForm((current) => ({
+                          ...current,
+                          cnpj: event.target.value,
+                        }))
+                      }
+                      placeholder="00.000.000/0001-00"
+                    />
+                  </label>
+                  <label>
+                    Razao social
+                    <input
+                      value={fornecedorForm.razaoSocial}
+                      onChange={(event) =>
+                        setFornecedorForm((current) => ({
+                          ...current,
+                          razaoSocial: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Nome fantasia
+                    <input
+                      value={fornecedorForm.nomeFantasia}
+                      onChange={(event) =>
+                        setFornecedorForm((current) => ({
+                          ...current,
+                          nomeFantasia: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="form-grid">
+                    <label>
+                      Telefone
+                      <input
+                        value={fornecedorForm.telefone}
+                        onChange={(event) =>
+                          setFornecedorForm((current) => ({
+                            ...current,
+                            telefone: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      E-mail
+                      <input
+                        type="email"
+                        value={fornecedorForm.email}
+                        onChange={(event) =>
+                          setFornecedorForm((current) => ({
+                            ...current,
+                            email: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={!fornecedorForm.cnpj || !fornecedorForm.razaoSocial}
+                  >
+                    Cadastrar fornecedor
+                  </button>
+                </form>
+              </section>
+
+              <section className="section-block">
+                <div className="section-heading">
+                  <div>
+                    <h2>Contato do fornecedor</h2>
+                    <span>POST /fornecedores/:id/contatos</span>
+                  </div>
+                  <strong>{contatosFornecedor.length}</strong>
+                </div>
+                <form className="compact-form" onSubmit={handleCreateContato}>
+                  <label>
+                    Fornecedor
+                    <select
+                      value={contatoForm.fornecedorId}
+                      onChange={(event) =>
+                        setContatoForm((current) => ({
+                          ...current,
+                          fornecedorId: event.target.value,
+                        }))
+                      }
+                    >
+                      {fornecedoresAtivos.map((fornecedor) => (
+                        <option key={fornecedor.id} value={fornecedor.id}>
+                          {fornecedorNome(fornecedor)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Nome do contato
+                    <input
+                      value={contatoForm.nome}
+                      onChange={(event) =>
+                        setContatoForm((current) => ({
+                          ...current,
+                          nome: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Cargo
+                    <input
+                      value={contatoForm.cargo}
+                      onChange={(event) =>
+                        setContatoForm((current) => ({
+                          ...current,
+                          cargo: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="form-grid">
+                    <label>
+                      Telefone
+                      <input
+                        value={contatoForm.telefone}
+                        onChange={(event) =>
+                          setContatoForm((current) => ({
+                            ...current,
+                            telefone: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      E-mail
+                      <input
+                        type="email"
+                        value={contatoForm.email}
+                        onChange={(event) =>
+                          setContatoForm((current) => ({
+                            ...current,
+                            email: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={!contatoForm.fornecedorId || !contatoForm.nome}
+                  >
+                    Cadastrar contato
+                  </button>
+                </form>
+              </section>
+            </div>
+
+            <div className="action-grid">
+              <section className="section-block">
+                <div className="section-heading">
+                  <div>
+                    <h2>Grupo de item</h2>
+                    <span>POST /grupos</span>
+                  </div>
+                  <strong>{grupos.length}</strong>
+                </div>
+                <form className="compact-form" onSubmit={handleCreateGrupo}>
+                  <label>
+                    Nome do grupo
+                    <input
+                      value={grupoForm.nome}
+                      onChange={(event) =>
+                        setGrupoForm({
+                          nome: event.target.value,
+                        })
+                      }
+                      placeholder="Manutencao, Almoxarifado, EPIs..."
+                    />
+                  </label>
+                  <button type="submit" className="primary" disabled={!grupoForm.nome}>
+                    Cadastrar grupo
+                  </button>
+                </form>
+              </section>
+
+              <section className="section-block">
+                <div className="section-heading">
+                  <div>
+                    <h2>Item de compra</h2>
+                    <span>POST /itens</span>
+                  </div>
+                  <strong>{itens.length}</strong>
+                </div>
+                <form className="compact-form" onSubmit={handleCreateItem}>
+                  <div className="form-grid">
+                    <label>
+                      Codigo
+                      <input
+                        value={itemForm.codigo}
+                        onChange={(event) =>
+                          setItemForm((current) => ({
+                            ...current,
+                            codigo: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      Unidade
+                      <input
+                        value={itemForm.unidade}
+                        onChange={(event) =>
+                          setItemForm((current) => ({
+                            ...current,
+                            unidade: event.target.value.toUpperCase(),
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Descricao
+                    <input
+                      value={itemForm.descricao}
+                      onChange={(event) =>
+                        setItemForm((current) => ({
+                          ...current,
+                          descricao: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="form-grid">
+                    <label>
+                      Grupo
+                      <select
+                        value={itemForm.grupoId}
+                        onChange={(event) =>
+                          setItemForm((current) => ({
+                            ...current,
+                            grupoId: event.target.value,
+                          }))
+                        }
+                      >
+                        {gruposAtivos.map((grupo) => (
+                          <option key={grupo.id} value={grupo.id}>
+                            {grupo.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Classificacao
+                      <select
+                        value={itemForm.classificacao}
+                        onChange={(event) =>
+                          setItemForm((current) => ({
+                            ...current,
+                            classificacao: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="CUSTO">Custo</option>
+                        <option value="DESPESA">Despesa</option>
+                        <option value="INVESTIMENTO">Investimento</option>
+                        <option value="PLR">PLR</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="check-row">
+                    <input
+                      type="checkbox"
+                      checked={itemForm.controlaEstoque}
+                      onChange={(event) =>
+                        setItemForm((current) => ({
+                          ...current,
+                          controlaEstoque: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span>
+                      <strong>Controla estoque</strong>
+                      <small>Marca o item como controlado no cadastro</small>
+                    </span>
+                  </label>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={
+                      !itemForm.codigo ||
+                      !itemForm.descricao ||
+                      !itemForm.unidade ||
+                      !itemForm.grupoId
+                    }
+                  >
+                    Cadastrar item
+                  </button>
+                </form>
+              </section>
+            </div>
+          </ActionScreen>
+        )}
+
         {activeTab === 'cadastros' && (
           <div className="page-section">
             <section className="catalog-grid">
-              <ListBlock title="Fornecedores" items={demoFornecedores} />
-              <ListBlock title="Itens de compra" items={demoItens} />
-              <ListBlock title="Usuarios" items={demoUsuarios} />
+              <ListBlock title="Fornecedores" items={fornecedores} />
+              <ListBlock title="Contatos" items={contatosFornecedor} />
+              <ListBlock title="Grupos de item" items={grupos} />
+              <ListBlock title="Itens de compra" items={itens} />
+              <ListBlock title="Usuarios" items={usuarios} />
             </section>
           </div>
         )}
@@ -1391,7 +2431,10 @@ function App() {
   )
 }
 
-function StatusBadge(value) {
+function StatusBadge(props) {
+  const value =
+    props && typeof props === 'object' && Object.hasOwn(props, 'value') ? props.value : props
+
   return <span className={`badge ${statusClass[value] || 'neutral'}`}>{statusText(value)}</span>
 }
 
@@ -1452,7 +2495,7 @@ function TableSection({ title, subtitle, rows, columns }) {
               <tr key={row.id}>
                 {columns.map(([key, label, formatter]) => (
                   <td key={`${row.id}-${label}`}>
-                    {formatter ? formatter(row[key]) : row[key]}
+                    {formatter ? formatter(row[key], row) : row[key]}
                   </td>
                 ))}
               </tr>
@@ -1471,17 +2514,41 @@ function ListBlock({ title, items }) {
         <h2>{title}</h2>
         <span>{items.length} registros</span>
       </div>
-      <ul>
-        {items.map((item) => (
-          <li key={item.id}>
-            <strong>{item.razaoSocial || item.descricao || item.nome}</strong>
-            <span>
-              {item.cnpj || item.codigo || item.email}
-              {item.status ? ` · ${item.status}` : ''}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {items.length > 0 ? (
+        <ul>
+          {items.map((item) => {
+            const ativoStatus =
+              item.ativo === undefined || item.ativo === null
+                ? ''
+                : ` | ${statusText(item.ativo ? 'ATIVO' : 'INATIVO')}`
+            const status = item.status ? ` | ${statusText(item.status)}` : ativoStatus
+            const detail = [
+              item.fornecedor_nome,
+              item.cnpj || item.codigo || item.email || item.unidade || item.cargo,
+            ]
+              .filter(Boolean)
+              .join(' | ')
+
+            return (
+              <li key={item.id}>
+                <strong>
+                  {item.razao_social ||
+                    item.nome_fantasia ||
+                    item.descricao ||
+                    item.nome ||
+                    item.codigo}
+                </strong>
+                <span>
+                  {detail || 'Sem detalhe'}
+                  {status}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <EmptyState text="Nenhum registro carregado." />
+      )}
     </section>
   )
 }
