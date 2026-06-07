@@ -63,11 +63,6 @@
         text-transform: uppercase;
       }
 
-      .company-line {
-        margin-top: 2px;
-        color: var(--muted);
-      }
-
       .order-box {
         border-left: 1px solid var(--border);
       }
@@ -107,20 +102,9 @@
         text-transform: uppercase;
       }
 
-      .grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-      }
-
       .cell {
         min-height: 9mm;
         padding: 2.5mm 3mm;
-        border-right: 1px solid var(--border);
-        border-bottom: 1px solid #cbd2d9;
-      }
-
-      .cell:nth-child(2n) {
-        border-right: 0;
       }
 
       .cell-label {
@@ -190,20 +174,6 @@
         line-height: 1.45;
       }
 
-      .signatures {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 18mm;
-        margin-top: 16mm;
-      }
-
-      .signature-line {
-        padding-top: 4mm;
-        border-top: 1px solid var(--border);
-        text-align: center;
-        color: var(--muted);
-      }
-
       .footer {
         margin-top: 9mm;
         color: var(--muted);
@@ -231,41 +201,22 @@
         <section class="company">
           <div class="logo-box">LOGO</div>
           <div class="company-name">{{empresa_nome}}</div>
-          <div class="company-line">{{empresa_documento}}</div>
-          <div class="company-line">{{empresa_endereco}}</div>
-          <div class="company-line">{{empresa_contato}}</div>
         </section>
 
         <aside class="order-box">
           <div class="order-title">Pedido de Compra</div>
           <div class="order-info">
             <span class="order-number">{{numero_oc}}</span>
-            <div><strong>Emissao:</strong> {{data_emissao}}</div>
-            <div><strong>Compra:</strong> {{compra_id}}</div>
-            <div><strong>Solicitacao:</strong> {{solicitacao_id}}</div>
+            <div><strong>Data do pedido:</strong> {{data_emissao}}</div>
           </div>
         </aside>
       </header>
 
       <section class="section">
         <div class="section-title">Fornecedor</div>
-        <div class="grid">
-          <div class="cell">
-            <span class="cell-label">Razao social</span>
-            <span class="cell-value">{{fornecedor_razao_social}}</span>
-          </div>
-          <div class="cell">
-            <span class="cell-label">Nome fantasia</span>
-            <span class="cell-value">{{fornecedor_nome_fantasia}}</span>
-          </div>
-          <div class="cell">
-            <span class="cell-label">CNPJ</span>
-            <span class="cell-value">{{fornecedor_cnpj}}</span>
-          </div>
-          <div class="cell">
-            <span class="cell-label">Status da OC</span>
-            <span class="cell-value">{{status}}</span>
-          </div>
+        <div class="cell">
+          <span class="cell-label">Nome</span>
+          <span class="cell-value">{{fornecedor_razao_social}}</span>
         </div>
       </section>
 
@@ -301,11 +252,6 @@
       <section class="section">
         <div class="section-title">Observacoes</div>
         <div class="notes">{{observacoes}}</div>
-      </section>
-
-      <section class="signatures">
-        <div class="signature-line">Comprador / Responsavel</div>
-        <div class="signature-line">Fornecedor</div>
       </section>
 
       <footer class="footer">

@@ -62,11 +62,11 @@ export async function getResumoOrdensCompra(req, res) {
 
 export async function getOrdemCompraPdf(req, res) {
   try {
-    const pdf = await ordensCompraService.gerarPdfHtml(req.params.id);
+    const pdf = await ordensCompraService.gerarPdf(req.params.id);
 
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${pdf.filename}"`);
-    res.send(pdf.html);
+    res.send(pdf.buffer);
   } catch (error) {
     sendError(res, error);
   }

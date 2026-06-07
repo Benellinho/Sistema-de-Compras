@@ -131,6 +131,16 @@ async function gerarPdfHtml(id) {
   };
 }
 
+async function gerarPdf(id) {
+  const ordem = await validateOrdemExiste(id);
+  const buffer = ordensCompraPdfService.renderPdfBuffer(ordem);
+
+  return {
+    filename: `${ordem.numero_oc}.pdf`,
+    buffer
+  };
+}
+
 async function enviar(id, data = {}) {
   const ordem = await validateOrdemExiste(id);
 
@@ -155,13 +165,16 @@ async function enviar(id, data = {}) {
     observacao: data?.observacao ?? null
   });
   const pdfHtml = await ordensCompraPdfService.renderHtml(ordem);
+  const pdfBuffer = ordensCompraPdfService.renderPdfBuffer(ordem);
 
   try {
     await envioAdapter.enviarOrdemCompra({
       ordem,
       contato,
       envio,
-      pdfHtml
+      pdfHtml,
+      pdfBuffer,
+      pdfFilename: `${ordem.numero_oc}.pdf`
     });
 
     return ordensCompraRepository.marcarEnvioSucesso(envio.id, {
@@ -267,6 +280,7 @@ export default {
   gerarSubstituta,
   getResumoByCompraId,
   gerarPdfHtml,
+  gerarPdf,
   enviar,
   setEnvioAdapter,
   resetEnvioAdapter
