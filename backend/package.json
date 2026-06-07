@@ -1,7 +1,7 @@
 {
   "name": "sistema-de-compras-backend",
   "version": "1.0.0",
-  "description": "Backend inicial para sistema de compras com Express e SQLite.",
+  "description": "Backend inicial para sistema de compras com Express e PostgreSQL.",
   "type": "module",
   "main": "src/server.js",
   "engines": {
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "nodemon src/server.js",
-    "render-build": "npm ci --build-from-source=sqlite3 && npm rebuild sqlite3 --build-from-source",
+    "render-build": "npm ci",
     "start": "node src/server.js",
     "test": "npm run test:db && npm run test:fornecedores && npm run test:itens && npm run test:usuarios && npm run test:solicitacoes && npm run test:cotacoes && npm run test:compras && npm run test:ordens-compra && npm run test:v1",
     "test:db": "node tests/db/test-db-connection.js",
@@ -23,11 +23,11 @@
     "test:v1": "node tests/v1/run-tests.js"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "express": "^4.18.3",
     "nodemailer": "^8.0.10",
-    "puppeteer": "^24.10.1",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^6.0.1"
+    "pg": "^8.16.3",
+    "puppeteer": "^24.10.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

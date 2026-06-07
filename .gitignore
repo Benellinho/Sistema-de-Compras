@@ -14,8 +14,8 @@ dist/
 dist-ssr/
 /convencoes.md
 /alterações.md
-documentacao/alterações.md
-documentacao/convencoes.md
+backend/documentacao/alterações.md
+backend/documentacao/convencoes.md
 src/db/database.sqlite
 
 # Modelos privados/locais de documentos e PDFs
