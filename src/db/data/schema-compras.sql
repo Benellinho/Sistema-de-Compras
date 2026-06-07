@@ -420,6 +420,9 @@ CREATE INDEX IF NOT EXISTS idx_cotacao_fornecedores_cotacao_id
 CREATE INDEX IF NOT EXISTS idx_cotacao_fornecedor_itens_cotacao_fornecedor_id
     ON cotacao_fornecedor_itens(cotacao_fornecedor_id);
 
+CREATE INDEX IF NOT EXISTS idx_cotacao_fornecedor_anexos_fornecedor_id
+    ON cotacao_fornecedor_anexos(cotacao_fornecedor_id);
+
 CREATE INDEX IF NOT EXISTS idx_compras_solicitacao_id
     ON compras(solicitacao_id);
 

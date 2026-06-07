@@ -4,6 +4,8 @@ uploads/
 logs/
 .env
 /convencoes.md
+/alterações.md
+documentacao/alterações.md
 documentacao/convencoes.md
 src/db/database.sqlite
 

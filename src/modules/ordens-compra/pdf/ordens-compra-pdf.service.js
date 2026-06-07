@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { renderPdfFromHtml } from '../../shared/pdf/pdf-provider.js';
 
 const templateUrl = new URL('../../../templates/ordens-compra/modelo-generico.html', import.meta.url);
 
@@ -193,8 +194,9 @@ async function renderHtml(ordem) {
   });
 }
 
-function renderPdfBuffer(ordem) {
-  return createPdfBuffer(buildPdfLines(ordem));
+async function renderPdfBuffer(ordem, html = null) {
+  html ??= await renderHtml(ordem);
+  return renderPdfFromHtml(html);
 }
 
 export default {

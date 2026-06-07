@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8">
+  <title>Solicitação de Orçamento {{cotacao_numero}}</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #e7eaee;
+      color: #111827;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      background: #fff;
+      padding: 14mm 12mm;
+    }
+
+    .header,
+    .section {
+      border: 1px solid #1f2933;
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: 1fr 50mm;
+    }
+
+    .company,
+    .request-box {
+      padding: 5mm;
+    }
+
+    .request-box {
+      border-left: 1px solid #1f2933;
+      text-align: center;
+    }
+
+    .title {
+      font-size: 17px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .number {
+      display: block;
+      margin-top: 3mm;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .section {
+      margin-top: 5mm;
+    }
+
+    .section-title {
+      padding: 2mm 3mm;
+      border-bottom: 1px solid #1f2933;
+      background: #f3f5f7;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .cell {
+      padding: 3mm;
+      line-height: 1.45;
+    }
+
+    .muted {
+      color: #5c6873;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      display: table-header-group;
+    }
+
+    th,
+    td {
+      padding: 2.2mm 2mm;
+      border-bottom: 1px solid #cbd2d9;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f3f5f7;
+      font-size: 10px;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .footer {
+      margin-top: 9mm;
+      color: #5c6873;
+      font-size: 10px;
+      text-align: center;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <header class="header">
+      <section class="company">
+        <div class="title">Solicitação de Orçamento</div>
+        <p class="muted">Sistema de Compras</p>
+        <p>{{observacoes}}</p>
+      </section>
+
+      <aside class="request-box">
+        <span class="muted">Cotação</span>
+        <span class="number">{{cotacao_numero}}</span>
+        <div>{{data_abertura}}</div>
+      </aside>
+    </header>
+
+    <section class="section">
+      <div class="section-title">Fornecedor</div>
+      <div class="cell">
+        <strong>{{fornecedor_razao_social}}</strong><br>
+        <span class="muted">CNPJ:</span> {{fornecedor_cnpj}}<br>
+        <span class="muted">E-mail:</span> {{fornecedor_email}}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">Itens para cotação</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="text-center">Item</th>
+            <th>Código</th>
+            <th>Descrição</th>
+            <th class="text-center">Un.</th>
+            <th class="text-right">Qtd.</th>
+            <th>Observações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{itens_linhas}}
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="footer">
+      Documento gerado pelo Sistema de Compras para coleta de orçamento/cotação.
+    </footer>
+  </main>
+</body>
+
+</html>

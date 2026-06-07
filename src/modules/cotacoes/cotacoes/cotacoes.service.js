@@ -69,6 +69,7 @@ async function findOne(id) {
 
   for (const fornecedor of fornecedores) {
     fornecedor.itens = await cotacoesRepository.findItensByCotacaoFornecedorId(fornecedor.id);
+    fornecedor.anexos = await cotacoesRepository.findAnexosByCotacaoFornecedorId(fornecedor.id);
   }
 
   return {

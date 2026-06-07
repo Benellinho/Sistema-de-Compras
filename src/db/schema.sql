@@ -171,3 +171,16 @@ CREATE TABLE IF NOT EXISTS cotacao_fornecedor_itens (
   FOREIGN KEY (cotacao_fornecedor_id) REFERENCES cotacao_fornecedores (id) ON DELETE CASCADE,
   FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id)
 );
+
+CREATE TABLE IF NOT EXISTS cotacao_fornecedor_anexos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cotacao_fornecedor_id INTEGER NOT NULL,
+  nome_arquivo TEXT NOT NULL,
+  caminho_arquivo TEXT NOT NULL,
+  tipo_arquivo TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (cotacao_fornecedor_id) REFERENCES cotacao_fornecedores (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_cotacao_fornecedor_anexos_fornecedor_id
+  ON cotacao_fornecedor_anexos (cotacao_fornecedor_id);

@@ -221,6 +221,10 @@ async function findFornecedorById(id) {
         cf.id,
         cf.cotacao_id,
         cf.fornecedor_id,
+        f.razao_social AS fornecedor_razao_social,
+        f.nome_fantasia AS fornecedor_nome_fantasia,
+        f.cnpj AS fornecedor_cnpj,
+        f.email AS fornecedor_email,
         cf.status,
         cf.data_envio,
         cf.data_resposta,
@@ -228,6 +232,7 @@ async function findFornecedorById(id) {
         cf.forma_pagamento,
         cf.observacoes
       FROM cotacao_fornecedores cf
+      INNER JOIN FORNECEDORES f ON f.id = cf.fornecedor_id
       WHERE cf.id = ?
     `,
     id
@@ -476,6 +481,91 @@ async function findItensByCotacaoFornecedorId(cotacaoFornecedorId) {
   );
 }
 
+async function findSolicitacaoItensByCotacaoId(cotacaoId) {
+  const database = await getDatabase();
+
+  return database.all(
+    `
+      SELECT
+        si.id AS solicitacao_item_id,
+        si.descricao_necessidade,
+        si.quantidade,
+        si.unidade_snapshot,
+        si.observacoes,
+        i.codigo AS item_codigo,
+        i.descricao AS item_descricao
+      FROM cotacoes c
+      INNER JOIN solicitacao_compra_itens si ON si.solicitacao_id = c.solicitacao_id
+      LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
+      WHERE c.id = ?
+      ORDER BY si.id ASC
+    `,
+    cotacaoId
+  );
+}
+
+async function addFornecedorAnexo({
+  cotacao_fornecedor_id,
+  nome_arquivo,
+  caminho_arquivo,
+  tipo_arquivo = null
+}) {
+  const database = await getDatabase();
+  const result = await database.run(
+    `
+      INSERT INTO cotacao_fornecedor_anexos (
+        cotacao_fornecedor_id,
+        nome_arquivo,
+        caminho_arquivo,
+        tipo_arquivo
+      )
+      VALUES (?, ?, ?, ?)
+    `,
+    [cotacao_fornecedor_id, nome_arquivo, caminho_arquivo, tipo_arquivo]
+  );
+
+  return findFornecedorAnexoById(result.lastID);
+}
+
+async function findFornecedorAnexoById(id) {
+  const database = await getDatabase();
+
+  return database.get(
+    `
+      SELECT
+        id,
+        cotacao_fornecedor_id,
+        nome_arquivo,
+        caminho_arquivo,
+        tipo_arquivo,
+        created_at
+      FROM cotacao_fornecedor_anexos
+      WHERE id = ?
+    `,
+    id
+  );
+}
+
+async function findAnexosByCotacaoFornecedorId(cotacaoFornecedorId) {
+  const database = await getDatabase();
+
+  return database.all(
+    `
+      SELECT
+        id,
+        cotacao_fornecedor_id,
+        nome_arquivo,
+        caminho_arquivo,
+        tipo_arquivo,
+        created_at
+      FROM cotacao_fornecedor_anexos
+      WHERE cotacao_fornecedor_id = ?
+      ORDER BY id ASC
+    `,
+    cotacaoFornecedorId
+  );
+}
+
 async function findSolicitacaoItemForCotacao(cotacaoId, solicitacaoItemId) {
   const database = await getDatabase();
 
@@ -611,7 +701,11 @@ export default {
   registrarResposta,
   updateFornecedorStatus,
   findItensByCotacaoFornecedorId,
+  findSolicitacaoItensByCotacaoId,
   findSolicitacaoItemForCotacao,
+  addFornecedorAnexo,
+  findFornecedorAnexoById,
+  findAnexosByCotacaoFornecedorId,
   getResumoRespostas,
   getComparativo
 };
