@@ -50,6 +50,12 @@ app.set('trust proxy', 1);
 app.use(corsMiddleware);
 app.use(express.json());
 
+app.get('/', (req, res) => {
+  res
+    .type('text/plain')
+    .send('API do Sistema de Compras funcionando. Use /health para verificar o status.');
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });

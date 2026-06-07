@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { API_BASE_URL } from './config/api'
 import { comprasApi } from './services/api'
 import {
@@ -14,6 +14,7 @@ import {
 import './App.css'
 
 const tabs = [
+  { id: 'inicio', label: 'Inicio' },
   { id: 'painel', label: 'Painel' },
   { id: 'solicitacoes', label: 'Solicitacoes' },
   { id: 'enviar-cotacao', label: 'Enviar cotacao' },
@@ -99,15 +100,16 @@ function calculateResponseTotal(itens) {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('painel')
+  const [activeTab, setActiveTab] = useState('inicio')
   const [solicitacoes, setSolicitacoes] = useState(demoSolicitacoes)
   const [cotacoes, setCotacoes] = useState(demoCotacoes)
   const [cotacaoRespostas, setCotacaoRespostas] = useState(demoCotacaoRespostas)
   const [compras, setCompras] = useState(demoCompras)
   const [ordensCompra, setOrdensCompra] = useState(demoOrdensCompra)
   const [apiStatus, setApiStatus] = useState({
-    label: 'Modo demonstracao',
+    label: 'Aguardando checagem',
     tone: 'neutral',
+    detail: 'Clique em checar ou aguarde a verificacao inicial.',
   })
   const [draft, setDraft] = useState({
     item: demoItens[0].descricao,
@@ -239,6 +241,10 @@ function App() {
       },
     ]
   }, [cotacoes, solicitacoes])
+
+  useEffect(() => {
+    checkApi()
+  }, [])
 
   function handleCreateSolicitacao(event) {
     event.preventDefault()
@@ -440,13 +446,25 @@ function App() {
   }
 
   async function checkApi() {
-    setApiStatus({ label: 'Consultando API', tone: 'warning' })
+    setApiStatus({
+      label: 'Consultando API',
+      tone: 'warning',
+      detail: `Chamando ${API_BASE_URL}/health`,
+    })
 
     try {
-      await comprasApi.health()
-      setApiStatus({ label: 'API conectada', tone: 'success' })
-    } catch {
-      setApiStatus({ label: 'API indisponivel', tone: 'danger' })
+      const health = await comprasApi.health()
+      setApiStatus({
+        label: 'API conectada',
+        tone: 'success',
+        detail: `Resposta do backend: ${health?.status || 'ok'}`,
+      })
+    } catch (error) {
+      setApiStatus({
+        label: 'API indisponivel',
+        tone: 'danger',
+        detail: error.message,
+      })
     }
   }
 
@@ -509,6 +527,53 @@ function App() {
             </button>
           </div>
         </header>
+
+        {activeTab === 'inicio' && (
+          <section className="page-section">
+            <div className="backend-status-screen">
+              <div>
+                <span className="eyebrow">Backend Render</span>
+                <h2>Status da API</h2>
+                <p>
+                  Esta tela chama o endpoint de saude do backend configurado para o
+                  prototipo.
+                </p>
+              </div>
+
+              <div className={`backend-status-card ${apiStatus.tone}`}>
+                <span className={`status-dot ${apiStatus.tone}`}></span>
+                <div>
+                  <strong>{apiStatus.label}</strong>
+                  <span>{apiStatus.detail}</span>
+                </div>
+              </div>
+
+              <div className="backend-endpoints">
+                <div>
+                  <span>Base da API</span>
+                  <code>{API_BASE_URL}</code>
+                </div>
+                <div>
+                  <span>Health check</span>
+                  <code>{API_BASE_URL}/health</code>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" onClick={checkApi}>
+                  Checar novamente
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setActiveTab('painel')}
+                >
+                  Entrar no prototipo
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
         {activeTab === 'painel' && (
           <div className="page-section">
