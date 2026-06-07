@@ -1,0 +1,226 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function profile() {
+      return get(profilePath(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return signedIn()
+        && exists(profilePath(request.auth.uid))
+        && profile().ativo == true;
+    }
+
+    function hasRole(role) {
+      return isActive()
+        && profile().roles is list
+        && role in profile().roles;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isCompras() {
+      return hasRole('compras');
+    }
+
+    function isAprovador() {
+      return hasRole('aprovador');
+    }
+
+    function canReadWorkflow() {
+      return isAdmin() || isCompras() || isAprovador();
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isOwnSolicitacao(data) {
+      return isActive()
+        && (
+          (data.keys().hasAny(['solicitante_uid']) && data.solicitante_uid == request.auth.uid)
+          || (data.keys().hasAny(['solicitante_id']) && data.solicitante_id == request.auth.uid)
+        );
+    }
+
+    function solicitacaoPath(solicitacaoId) {
+      return /databases/$(database)/documents/solicitacoes_compra/$(solicitacaoId);
+    }
+
+    function cotacaoPath(cotacaoId) {
+      return /databases/$(database)/documents/cotacoes/$(cotacaoId);
+    }
+
+    function compraPath(compraId) {
+      return /databases/$(database)/documents/compras/$(compraId);
+    }
+
+    function cotacaoFornecedorPath(cotacaoFornecedorId) {
+      return /databases/$(database)/documents/cotacao_fornecedores/$(cotacaoFornecedorId);
+    }
+
+    function compraFornecedorPath(compraFornecedorId) {
+      return /databases/$(database)/documents/compra_fornecedores/$(compraFornecedorId);
+    }
+
+    function canReadSolicitacaoData(data) {
+      return canReadWorkflow() || isOwnSolicitacao(data);
+    }
+
+    function canReadSolicitacao(solicitacaoId) {
+      return exists(solicitacaoPath(solicitacaoId))
+        && canReadSolicitacaoData(get(solicitacaoPath(solicitacaoId)).data);
+    }
+
+    function canReadCotacao(cotacaoId) {
+      return exists(cotacaoPath(cotacaoId))
+        && canReadSolicitacao(get(cotacaoPath(cotacaoId)).data.solicitacao_id);
+    }
+
+    function canReadCompra(compraId) {
+      return exists(compraPath(compraId))
+        && canReadSolicitacao(get(compraPath(compraId)).data.solicitacao_id);
+    }
+
+    function canReadCotacaoFornecedor(cotacaoFornecedorId) {
+      return exists(cotacaoFornecedorPath(cotacaoFornecedorId))
+        && canReadCotacao(get(cotacaoFornecedorPath(cotacaoFornecedorId)).data.cotacao_id);
+    }
+
+    function canReadCompraFornecedor(compraFornecedorId) {
+      return exists(compraFornecedorPath(compraFornecedorId))
+        && canReadCompra(get(compraFornecedorPath(compraFornecedorId)).data.compra_id);
+    }
+
+    match /users/{userId} {
+      allow get: if isSelf(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    match /usuarios/{usuarioId} {
+      allow read: if isActive();
+      allow write: if false;
+    }
+
+    match /fornecedores/{fornecedorId} {
+      allow read: if isActive();
+      allow write: if false;
+    }
+
+    match /fornecedor_contatos/{contatoId} {
+      allow read: if isActive();
+      allow write: if false;
+    }
+
+    match /grupos_itens/{grupoId} {
+      allow read: if isActive();
+      allow write: if false;
+    }
+
+    match /itens_compra/{itemId} {
+      allow read: if isActive();
+      allow write: if false;
+    }
+
+    match /solicitacoes_compra/{solicitacaoId} {
+      allow read: if canReadSolicitacaoData(resource.data);
+      allow write: if false;
+    }
+
+    match /solicitacao_compra_itens/{itemSolicitacaoId} {
+      allow read: if canReadSolicitacao(resource.data.solicitacao_id);
+      allow write: if false;
+    }
+
+    match /solicitacao_compra_anexos/{anexoId} {
+      allow read: if canReadSolicitacao(resource.data.solicitacao_id);
+      allow write: if false;
+    }
+
+    match /solicitacao_compra_aprovacoes/{aprovacaoId} {
+      allow read: if canReadSolicitacao(resource.data.solicitacao_id);
+      allow write: if false;
+    }
+
+    match /solicitacao_compra_historico/{historicoId} {
+      allow read: if canReadSolicitacao(resource.data.solicitacao_id);
+      allow write: if false;
+    }
+
+    match /cotacoes/{cotacaoId} {
+      allow read: if canReadCotacao(cotacaoId);
+      allow write: if false;
+    }
+
+    match /cotacao_fornecedores/{cotacaoFornecedorId} {
+      allow read: if canReadCotacao(resource.data.cotacao_id);
+      allow write: if false;
+    }
+
+    match /cotacao_fornecedor_itens/{cotacaoItemId} {
+      allow read: if canReadCotacaoFornecedor(resource.data.cotacao_fornecedor_id);
+      allow write: if false;
+    }
+
+    match /cotacao_fornecedor_anexos/{anexoId} {
+      allow read: if canReadCotacaoFornecedor(resource.data.cotacao_fornecedor_id);
+      allow write: if false;
+    }
+
+    match /cotacao_aprovacoes/{aprovacaoId} {
+      allow read: if canReadWorkflow();
+      allow write: if false;
+    }
+
+    match /compras/{compraId} {
+      allow read: if canReadCompra(compraId);
+      allow write: if false;
+    }
+
+    match /compra_fornecedores/{compraFornecedorId} {
+      allow read: if canReadCompra(resource.data.compra_id);
+      allow write: if false;
+    }
+
+    match /compra_fornecedor_itens/{compraItemId} {
+      allow read: if canReadCompraFornecedor(resource.data.compra_fornecedor_id);
+      allow write: if false;
+    }
+
+    match /compra_fornecedor_justificativas/{justificativaId} {
+      allow read: if canReadCompraFornecedor(resource.data.compra_fornecedor_id);
+      allow write: if false;
+    }
+
+    match /compra_aprovacoes/{aprovacaoId} {
+      allow read: if canReadWorkflow();
+      allow write: if false;
+    }
+
+    match /ordens_compra/{ordemId} {
+      allow read: if canReadWorkflow();
+      allow write: if false;
+    }
+
+    match /ordem_compra_envios/{envioId} {
+      allow read: if canReadWorkflow();
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
