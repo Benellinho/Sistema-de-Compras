@@ -9,7 +9,7 @@ import {
   getCompra,
   listCompras
 } from './compras.controller.js';
-import { getResumoOrdensCompra } from '../../ordens-compra/ordens-compra.controller.js';
+import { getResumoOrdensCompra } from '../../ordens-compra/ordens-compra/ordens-compra.controller.js';
 
 const router = Router();
 

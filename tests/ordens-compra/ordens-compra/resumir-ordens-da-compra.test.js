@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import ordensCompraService from '../../../src/modules/ordens-compra/ordens-compra.service.js';
+import ordensCompraService from '../../../src/modules/ordens-compra/ordens-compra/ordens-compra.service.js';
 import solicitacoesService from '../../../src/modules/solicitacoes/solicitacoes/solicitacoes.service.js';
 import { cleanupOrdemCompraFixtures, createCompraAprovadaFixture } from '../helpers/test-utils.js';
 

@@ -4,10 +4,10 @@ import {
   createValidationError,
   required,
   validateUsuarioExiste
-} from '../cotacoes/cotacoes/cotacoes.service.js';
+} from '../../cotacoes/cotacoes/cotacoes.service.js';
 import envioAdapterPadrao from './ordens-compra-envio.adapter.js';
 import ordensCompraRepository from './ordens-compra.repository.js';
-import ordensCompraPdfService from './pdf/ordens-compra-pdf.service.js';
+import ordensCompraPdfService from '../pdf/ordens-compra-pdf.service.js';
 
 const statusValidos = new Set(['GERADA', 'CANCELADA', 'SUBSTITUIDA']);
 let envioAdapter = envioAdapterPadrao;
@@ -133,7 +133,7 @@ async function gerarPdfHtml(id) {
 
 async function gerarPdf(id) {
   const ordem = await validateOrdemExiste(id);
-  const buffer = ordensCompraPdfService.renderPdfBuffer(ordem);
+  const buffer = await ordensCompraPdfService.renderPdfBuffer(ordem);
 
   return {
     filename: `${ordem.numero_oc}.pdf`,
@@ -165,7 +165,7 @@ async function enviar(id, data = {}) {
     observacao: data?.observacao ?? null
   });
   const pdfHtml = await ordensCompraPdfService.renderHtml(ordem);
-  const pdfBuffer = ordensCompraPdfService.renderPdfBuffer(ordem);
+  const pdfBuffer = await ordensCompraPdfService.renderPdfBuffer(ordem, pdfHtml);
 
   try {
     await envioAdapter.enviarOrdemCompra({

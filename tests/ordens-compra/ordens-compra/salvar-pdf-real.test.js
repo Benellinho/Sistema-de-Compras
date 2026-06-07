@@ -1,6 +1,6 @@
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import ordensCompraService from '../../../src/modules/ordens-compra/ordens-compra.service.js';
+import ordensCompraService from '../../../src/modules/ordens-compra/ordens-compra/ordens-compra.service.js';
 import { cleanupOrdemCompraFixtures, createCompraAprovadaFixture } from '../helpers/test-utils.js';
 
 export default async function testSalvarPdfReal() {

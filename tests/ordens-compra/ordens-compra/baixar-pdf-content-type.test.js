@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { getOrdemCompraPdf } from '../../../src/modules/ordens-compra/ordens-compra.controller.js';
-import ordensCompraService from '../../../src/modules/ordens-compra/ordens-compra.service.js';
+import { getOrdemCompraPdf } from '../../../src/modules/ordens-compra/ordens-compra/ordens-compra.controller.js';
+import ordensCompraService from '../../../src/modules/ordens-compra/ordens-compra/ordens-compra.service.js';
 import { cleanupOrdemCompraFixtures, createCompraAprovadaFixture } from '../helpers/test-utils.js';
 
 export default async function testBaixarPdfContentType() {

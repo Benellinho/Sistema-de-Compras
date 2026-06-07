@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import contatosService from '../../../src/modules/fornecedores/contatos/contatos.service.js';
-import ordensCompraService from '../../../src/modules/ordens-compra/ordens-compra.service.js';
+import ordensCompraService from '../../../src/modules/ordens-compra/ordens-compra/ordens-compra.service.js';
 import { cleanupOrdemCompraFixtures, createCompraAprovadaFixture } from '../helpers/test-utils.js';
 
 export default async function testRegistrarFalhaEnvio() {
