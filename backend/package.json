@@ -1,6 +1,6 @@
 {
   "name": "sistema-de-compras-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Backend inicial para sistema de compras com Express e PostgreSQL.",
   "type": "module",
   "main": "src/server.js",
