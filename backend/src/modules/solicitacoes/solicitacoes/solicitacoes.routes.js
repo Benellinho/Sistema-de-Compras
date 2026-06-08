@@ -4,6 +4,7 @@ import historicoRoutes from '../historico/historico.routes.js';
 import itensSolicitacaoRoutes from '../itens-solicitacao/itens-solicitacao.routes.js';
 import {
   createSolicitacao,
+  deleteAllSolicitacoesForTests,
   getSolicitacao,
   listSolicitacoes,
   updateSolicitacaoStatus
@@ -14,6 +15,7 @@ const router = Router();
 
 router.get('/', listSolicitacoes);
 router.post('/', createSolicitacao);
+router.delete('/limpar-testes', deleteAllSolicitacoesForTests);
 router.use('/:id/itens', itensSolicitacaoRoutes);
 router.use('/:id/aprovacao', aprovacoesRoutes);
 router.use('/:id/historico', historicoRoutes);

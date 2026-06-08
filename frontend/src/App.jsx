@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { API_BASE_URL, API_ROUTES } from './config/api'
 import { comprasApi } from './services/api'
 import './App.css'
@@ -98,12 +98,14 @@ function statusText(status) {
   return statusLabels[status] || status || '-'
 }
 
-function resourceCode(prefix, id) {
-  return `${prefix}-${new Date().getFullYear()}-${String(id || 0).padStart(6, '0')}`
-}
-
 function numeroSimples(id) {
-  return id ? String(Number(id)) : '-'
+  if (id === null || id === undefined || id === '') {
+    return '-'
+  }
+
+  const numericValue = Number(id)
+
+  return Number.isFinite(numericValue) ? String(numericValue) : String(id)
 }
 
 function solicitacaoNumero(solicitacao) {
@@ -111,11 +113,15 @@ function solicitacaoNumero(solicitacao) {
 }
 
 function cotacaoNumero(cotacao) {
-  return resourceCode('CT', cotacao?.id)
+  return numeroSimples(cotacao?.solicitacao_id)
 }
 
 function compraNumero(compra) {
-  return resourceCode('CP', compra?.id)
+  return numeroSimples(compra?.solicitacao_id)
+}
+
+function ordemNumero(ordem, compra) {
+  return numeroSimples(compra?.solicitacao_id || ordem?.solicitacao_id)
 }
 
 function solicitacaoItens(solicitacao) {
@@ -137,7 +143,78 @@ function itemSolicitacaoDescricao(item) {
   )
 }
 
+function parseSolicitacaoObservacoes(observacoes) {
+  if (!observacoes) {
+    return {}
+  }
+
+  if (typeof observacoes === 'object' && !Array.isArray(observacoes)) {
+    return observacoes
+  }
+
+  const text = String(observacoes)
+
+  try {
+    const parsed = JSON.parse(text)
+
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed
+    }
+  } catch {
+    return { necessidade: text }
+  }
+
+  return { necessidade: text }
+}
+
+function solicitacaoMeta(solicitacao) {
+  return parseSolicitacaoObservacoes(solicitacao?.observacoes)
+}
+
+function solicitacaoSolicitante(solicitacao) {
+  return solicitacao?.solicitante_nome || solicitacao?.solicitante_email || '-'
+}
+
+function solicitacaoUrgencia(solicitacao) {
+  return solicitacaoMeta(solicitacao).urgencia || ''
+}
+
+function solicitacaoCentroCusto(solicitacao) {
+  const meta = solicitacaoMeta(solicitacao)
+
+  return meta.centro_custo || meta.centroCusto || ''
+}
+
+function compactOptionText(parts) {
+  return parts
+    .map((part) => (part === null || part === undefined ? '' : String(part).trim()))
+    .filter(Boolean)
+    .join(' - ')
+}
+
+function solicitacaoClassificacaoOption(solicitacao) {
+  return compactOptionText([solicitacaoNumero(solicitacao), solicitacaoSolicitante(solicitacao)])
+}
+
+function solicitacaoCotacaoOption(solicitacao) {
+  return compactOptionText([
+    solicitacaoNumero(solicitacao),
+    solicitacaoResumoItens(solicitacao),
+    solicitacaoUrgencia(solicitacao),
+    solicitacaoCentroCusto(solicitacao),
+  ])
+}
+
+function buildSolicitacaoObservacoes({ necessidade, urgencia, centroCusto }) {
+  return JSON.stringify({
+    necessidade,
+    urgencia,
+    centro_custo: centroCusto,
+  })
+}
+
 function solicitacaoNecessidade(solicitacao) {
+  const meta = solicitacaoMeta(solicitacao)
   const firstFreeTextItem = solicitacaoItens(solicitacao).find(
     (item) => item.item_id === null || item.item_id === undefined,
   )
@@ -147,7 +224,7 @@ function solicitacaoNecessidade(solicitacao) {
     : ''
 
   return (
-    solicitacao?.observacoes ||
+    meta.necessidade ||
     firstFreeTextItem?.descricao_necessidade ||
     firstCatalogDescription ||
     'Sem necessidade'
@@ -283,7 +360,9 @@ function App() {
   const [compras, setCompras] = useState([])
   const [ordensCompra, setOrdensCompra] = useState([])
   const [loadingData, setLoadingData] = useState(false)
+  const [pendingAction, setPendingAction] = useState('')
   const [actionFeedback, setActionFeedback] = useState('')
+  const actionLockedRef = useRef(false)
   const [apiStatus, setApiStatus] = useState({
     label: 'Aguardando checagem',
     tone: 'neutral',
@@ -292,6 +371,8 @@ function App() {
   const [draft, setDraft] = useState({
     solicitanteId: '',
     descricaoNecessidade: '',
+    urgencia: 'Normal',
+    centroCusto: '',
   })
   const [classificacaoForm, setClassificacaoForm] = useState({
     solicitacaoId: '',
@@ -356,6 +437,7 @@ function App() {
   const gruposAtivos = useMemo(() => grupos.filter(isActiveItem), [grupos])
   const itensAtivos = useMemo(() => itens.filter(isActiveItem), [itens])
   const defaultUsuarioId = usuariosAtivos[0]?.id ? String(usuariosAtivos[0].id) : ''
+  const actionLocked = Boolean(pendingAction)
 
   const solicitacoesClassificaveis = useMemo(
     () => solicitacoes.filter((solicitacao) => solicitacao.status === 'ABERTA'),
@@ -499,6 +581,11 @@ function App() {
     return null
   }, [compras, ordensCompra])
 
+  const comprasPorId = useMemo(
+    () => new Map(compras.map((compra) => [Number(compra.id), compra])),
+    [compras],
+  )
+
   const metrics = useMemo(
     () => [
       {
@@ -517,7 +604,7 @@ function App() {
         detail: 'compras carregadas',
       },
       {
-        label: 'OCs geradas',
+        label: 'Ordens geradas',
         value: ordensCompra.filter((ordem) => ordem.status === 'GERADA').length,
         detail: `${ordensCompra.length} ordens`,
       },
@@ -530,7 +617,7 @@ function App() {
       solicitacoes.map((solicitacao) => ({
         id: solicitacao.id,
         numero: solicitacaoNumero(solicitacao),
-        solicitante: solicitacao.solicitante_nome || solicitacao.solicitante_email || '-',
+        solicitante: solicitacaoSolicitante(solicitacao),
         item: solicitacaoPrincipalItem(solicitacao),
         itens: solicitacaoItensCatalogados(solicitacao).length,
         status: solicitacao.status,
@@ -553,7 +640,6 @@ function App() {
         return {
           id: cotacao.id,
           numero: cotacaoNumero(cotacao),
-          solicitacao: numeroSimples(cotacao.solicitacao_id),
           rodada: cotacao.numero_rodada || 1,
           status: cotacao.status,
           respostas: `${respondidos}/${convidados}`,
@@ -571,7 +657,6 @@ function App() {
         return {
           id: compra.id,
           numero: compraNumero(compra),
-          solicitacao: numeroSimples(compra.solicitacao_id),
           fornecedor: fornecedorNome(fornecedor),
           aprovador: compra.criado_por_nome || '-',
           total: compraTotal(compra),
@@ -583,16 +668,19 @@ function App() {
 
   const ordemRows = useMemo(
     () =>
-      ordensCompra.map((ordem) => ({
-        id: ordem.id,
-        numero: ordem.numero_oc || resourceCode('OC', ordem.id),
-        compra: resourceCode('CP', ordem.compra_id),
-        fornecedor: fornecedorNome(ordem),
-        total: ordemTotal(ordem),
-        status: ordem.status,
-        envio: ordem.envios?.[0]?.status || 'PENDENTE',
-      })),
-    [ordensCompra],
+      ordensCompra.map((ordem) => {
+        const compra = comprasPorId.get(Number(ordem.compra_id))
+
+        return {
+          id: ordem.id,
+          numero: ordemNumero(ordem, compra),
+          fornecedor: fornecedorNome(ordem),
+          total: ordemTotal(ordem),
+          status: ordem.status,
+          envio: ordem.envios?.[0]?.status || 'PENDENTE',
+        }
+      }),
+    [comprasPorId, ordensCompra],
   )
 
   useEffect(() => {
@@ -601,6 +689,22 @@ function App() {
     // Initial screen bootstrap only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function runLocked(actionName, task) {
+    if (actionLockedRef.current) {
+      return
+    }
+
+    actionLockedRef.current = true
+    setPendingAction(actionName)
+
+    try {
+      await task()
+    } finally {
+      actionLockedRef.current = false
+      setPendingAction('')
+    }
+  }
 
   function syncFormDefaults({
     usuariosData,
@@ -850,452 +954,523 @@ function App() {
     }
   }
 
-  async function checkApi() {
-    setApiStatus({
-      label: 'Checando API',
-      tone: 'warning',
-      detail: `Chamando ${API_BASE_URL}${API_ROUTES.health}`,
+  async function handleLoadBackendData() {
+    return runLocked('Atualizando dados', async () => {
+      await loadBackendData()
     })
+  }
 
-    try {
-      const response = await comprasApi.health()
+  async function checkApi() {
+    return runLocked('Checando API', async () => {
+      setApiStatus({
+        label: 'Checando API',
+        tone: 'warning',
+        detail: `Chamando ${API_BASE_URL}${API_ROUTES.health}`,
+      })
 
-      setApiStatus({
-        label: 'API funcionando',
-        tone: 'success',
-        detail: `GET /health respondeu ${response?.status || 'ok'}.`,
-      })
-    } catch (error) {
-      setApiStatus({
-        label: 'API fora do ar',
-        tone: 'danger',
-        detail: error.message,
-      })
-    }
+      try {
+        const response = await comprasApi.health()
+
+        setApiStatus({
+          label: 'API funcionando',
+          tone: 'success',
+          detail: `GET /health respondeu ${response?.status || 'ok'}.`,
+        })
+      } catch (error) {
+        setApiStatus({
+          label: 'API fora do ar',
+          tone: 'danger',
+          detail: error.message,
+        })
+      }
+    })
   }
 
   async function handleCreateSolicitacao(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      const descricaoNecessidade = draft.descricaoNecessidade.trim()
+    return runLocked('Criando solicitacao', async () => {
+      setActionFeedback('')
 
-      if (!draft.solicitanteId) {
-        throw new Error('Nenhum solicitante ativo encontrado.')
+      try {
+        const descricaoNecessidade = draft.descricaoNecessidade.trim()
+        const urgencia = draft.urgencia.trim()
+        const centroCusto = draft.centroCusto.trim()
+
+        if (!draft.solicitanteId) {
+          throw new Error('Nenhum solicitante ativo encontrado.')
+        }
+
+        if (!descricaoNecessidade) {
+          throw new Error('Informe a necessidade da solicitacao.')
+        }
+
+        const solicitacao = await comprasApi.criarSolicitacao({
+          solicitante_id: Number(draft.solicitanteId),
+          observacoes: buildSolicitacaoObservacoes({
+            necessidade: descricaoNecessidade,
+            urgencia,
+            centroCusto,
+          }),
+        })
+
+        setDraft((current) => ({
+          ...current,
+          descricaoNecessidade: '',
+          centroCusto: '',
+        }))
+        await loadBackendData({
+          silent: true,
+          successMessage: `Solicitação N° ${solicitacaoNumero(solicitacao)} registrada`,
+        })
+        setClassificacaoForm((current) => ({
+          ...current,
+          solicitacaoId: String(solicitacao.id),
+        }))
+        setActiveTab('classificar-solicitacao')
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel criar solicitacao: ${error.message}`)
       }
-
-      if (!descricaoNecessidade) {
-        throw new Error('Informe a necessidade da solicitacao.')
-      }
-
-      const solicitacao = await comprasApi.criarSolicitacao({
-        solicitante_id: Number(draft.solicitanteId),
-        observacoes: descricaoNecessidade,
-      })
-
-      setDraft((current) => ({
-        ...current,
-        descricaoNecessidade: '',
-      }))
-      await loadBackendData({
-        silent: true,
-        successMessage: `Solicitação N° ${solicitacaoNumero(solicitacao)} registrada`,
-      })
-      setClassificacaoForm((current) => ({
-        ...current,
-        solicitacaoId: String(solicitacao.id),
-      }))
-      setActiveTab('classificar-solicitacao')
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel criar solicitacao: ${error.message}`)
-    }
+    })
   }
 
   async function handleClassificarSolicitacao(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      if (!selectedClassificacaoSolicitacao) {
-        throw new Error('Selecione uma solicitacao aberta.')
+    return runLocked('Lancando item', async () => {
+      setActionFeedback('')
+
+      try {
+        if (!selectedClassificacaoSolicitacao) {
+          throw new Error('Selecione uma solicitacao aberta.')
+        }
+
+        if (!selectedClassificacaoItem) {
+          throw new Error('Selecione um item cadastrado.')
+        }
+
+        await comprasApi.adicionarItemSolicitacao(selectedClassificacaoSolicitacao.id, {
+          item_id: Number(classificacaoForm.itemId),
+          quantidade: Number(classificacaoForm.quantidade || 0),
+          descricao_necessidade: selectedClassificacaoItem.descricao,
+          observacoes: classificacaoForm.observacoes || null,
+        })
+
+        setClassificacaoForm((current) => ({
+          ...current,
+          quantidade: 1,
+          observacoes: '',
+        }))
+        await loadBackendData({
+          silent: true,
+          successMessage: `Item lancado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
+        })
+        setActiveTab('classificar-solicitacao')
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel lancar item: ${error.message}`)
       }
-
-      if (!selectedClassificacaoItem) {
-        throw new Error('Selecione um item cadastrado.')
-      }
-
-      await comprasApi.adicionarItemSolicitacao(selectedClassificacaoSolicitacao.id, {
-        item_id: Number(classificacaoForm.itemId),
-        quantidade: Number(classificacaoForm.quantidade || 0),
-        descricao_necessidade: selectedClassificacaoItem.descricao,
-        observacoes: classificacaoForm.observacoes || null,
-      })
-
-      setClassificacaoForm((current) => ({
-        ...current,
-        quantidade: 1,
-        observacoes: '',
-      }))
-      await loadBackendData({
-        silent: true,
-        successMessage: `Item lancado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
-      })
-      setActiveTab('classificar-solicitacao')
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel lancar item: ${error.message}`)
-    }
+    })
   }
 
   async function handleRemoveClassificacaoItem(itemSolicitacaoId) {
-    setActionFeedback('')
+    return runLocked('Removendo item', async () => {
+      setActionFeedback('')
 
-    try {
-      if (!selectedClassificacaoSolicitacao) {
-        throw new Error('Selecione uma solicitacao aberta.')
+      try {
+        if (!selectedClassificacaoSolicitacao) {
+          throw new Error('Selecione uma solicitacao aberta.')
+        }
+
+        await comprasApi.removerItemSolicitacao(selectedClassificacaoSolicitacao.id, itemSolicitacaoId)
+        await loadBackendData({
+          silent: true,
+          successMessage: `Item removido da solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
+        })
+        setActiveTab('classificar-solicitacao')
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel remover item: ${error.message}`)
       }
+    })
+  }
 
-      await comprasApi.removerItemSolicitacao(selectedClassificacaoSolicitacao.id, itemSolicitacaoId)
-      await loadBackendData({
-        silent: true,
-        successMessage: `Item removido da solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
-      })
-      setActiveTab('classificar-solicitacao')
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel remover item: ${error.message}`)
+  async function handleLimparSolicitacoesTeste() {
+    const confirmed = window.confirm(
+      'Isso vai apagar todas as solicitacoes, cotacoes, compras e ordens de compra criadas. Continuar?',
+    )
+
+    if (!confirmed) {
+      return
     }
+
+    return runLocked('Limpando solicitacoes', async () => {
+      setActionFeedback('')
+
+      try {
+        const result = await comprasApi.limparSolicitacoesTeste()
+        await loadBackendData({
+          silent: true,
+          successMessage: `${result.solicitacoes_removidas || 0} solicitacoes removidas.`,
+        })
+        setActiveTab('solicitacoes')
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel limpar solicitacoes: ${error.message}`)
+      }
+    })
   }
 
   async function enviarSolicitacaoParaCotacao(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      let solicitacaoId = Number(envioCotacao.solicitacaoId)
+    return runLocked('Enviando cotacao', async () => {
+      setActionFeedback('')
 
-      if (!selectedEnvioSolicitacao) {
-        throw new Error('Selecione uma solicitacao.')
-      }
+      try {
+        let solicitacaoId = Number(envioCotacao.solicitacaoId)
 
-      if (envioCotacao.fornecedorIds.length < 1) {
-        throw new Error('Selecione ao menos um fornecedor.')
-      }
+        if (!selectedEnvioSolicitacao) {
+          throw new Error('Selecione uma solicitacao.')
+        }
 
-      if (solicitacaoItensCatalogados(selectedEnvioSolicitacao).length < 1) {
-        throw new Error('Lance ao menos um item cadastrado antes de enviar para cotacao.')
-      }
+        if (envioCotacao.fornecedorIds.length < 1) {
+          throw new Error('Selecione ao menos um fornecedor.')
+        }
 
-      if (selectedEnvioSolicitacao.status === 'ABERTA') {
-        await comprasApi.decidirSolicitacao(solicitacaoId, {
-          aprovador_id: Number(envioCotacao.usuarioId),
-          decisao: 'APROVADO',
-          observacao: 'Solicitacao aprovada para cotacao pelo prototipo.',
-        })
-      }
+        if (solicitacaoItensCatalogados(selectedEnvioSolicitacao).length < 1) {
+          throw new Error('Lance ao menos um item cadastrado antes de enviar para cotacao.')
+        }
 
-      const cotacao = await comprasApi.criarCotacao({
-        solicitacao_id: solicitacaoId,
-        criado_por: Number(envioCotacao.usuarioId),
-        observacoes: envioCotacao.observacoes,
-      })
+        if (selectedEnvioSolicitacao.status === 'ABERTA') {
+          await comprasApi.decidirSolicitacao(solicitacaoId, {
+            aprovador_id: Number(envioCotacao.usuarioId),
+            decisao: 'APROVADO',
+            observacao: 'Solicitacao aprovada para cotacao pelo prototipo.',
+          })
+        }
 
-      for (const fornecedorId of envioCotacao.fornecedorIds) {
-        const fornecedorCotacao = await comprasApi.adicionarFornecedorCotacao(cotacao.id, {
-          fornecedor_id: Number(fornecedorId),
-          usuario_id: Number(envioCotacao.usuarioId),
+        const cotacao = await comprasApi.criarCotacao({
+          solicitacao_id: solicitacaoId,
+          criado_por: Number(envioCotacao.usuarioId),
+          observacoes: envioCotacao.observacoes,
         })
 
-        await comprasApi.marcarEnvioFornecedorCotacao(cotacao.id, fornecedorCotacao.id, {
-          usuario_id: Number(envioCotacao.usuarioId),
-        })
-      }
+        for (const fornecedorId of envioCotacao.fornecedorIds) {
+          const fornecedorCotacao = await comprasApi.adicionarFornecedorCotacao(cotacao.id, {
+            fornecedor_id: Number(fornecedorId),
+            usuario_id: Number(envioCotacao.usuarioId),
+          })
 
-      await loadBackendData({
-        silent: true,
-        successMessage: `${cotacaoNumero(cotacao)} criada e enviada aos fornecedores.`,
-      })
-      setActiveTab('cotacoes')
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel enviar cotacao: ${error.message}`)
-    }
+          await comprasApi.marcarEnvioFornecedorCotacao(cotacao.id, fornecedorCotacao.id, {
+            usuario_id: Number(envioCotacao.usuarioId),
+          })
+        }
+
+        await loadBackendData({
+          silent: true,
+          successMessage: `Solicitacao N° ${cotacaoNumero(cotacao)} enviada para cotacao.`,
+        })
+        setActiveTab('cotacoes')
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel enviar cotacao: ${error.message}`)
+      }
+    })
   }
 
   async function handleRetornoCotacaoSubmit(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      if (!selectedRetornoCotacao || !selectedRetornoFornecedor) {
-        throw new Error('Selecione uma cotacao e um fornecedor.')
+    return runLocked('Registrando retorno', async () => {
+      setActionFeedback('')
+
+      try {
+        if (!selectedRetornoCotacao || !selectedRetornoFornecedor) {
+          throw new Error('Selecione uma cotacao e um fornecedor.')
+        }
+
+        if (retornoCotacao.status === 'RESPONDIDO') {
+          await comprasApi.registrarRespostaCotacao(
+            selectedRetornoCotacao.id,
+            selectedRetornoFornecedor.id,
+            {
+              prazo_entrega: retornoCotacao.prazoEntrega,
+              forma_pagamento: retornoCotacao.formaPagamento,
+              observacoes: retornoCotacao.observacoes,
+              usuario_id: Number(defaultUsuarioId || envioCotacao.usuarioId),
+              itens: retornoCotacao.itens.map((item) => ({
+                solicitacao_item_id: Number(item.solicitacaoItemId),
+                status_item: item.statusItem,
+                quantidade:
+                  item.statusItem === 'INDISPONIVEL' ? null : Number(item.quantidade || 0),
+                valor_unitario:
+                  item.statusItem === 'INDISPONIVEL' ? null : Number(item.valorUnitario || 0),
+                observacoes: item.observacoes || null,
+              })),
+            },
+          )
+        } else {
+          await comprasApi.atualizarFornecedorCotacaoStatus(
+            selectedRetornoCotacao.id,
+            selectedRetornoFornecedor.id,
+            {
+              status: retornoCotacao.status,
+              observacoes: retornoCotacao.observacoes,
+              usuario_id: Number(defaultUsuarioId || envioCotacao.usuarioId),
+            },
+          )
+        }
+
+        await loadBackendData({
+          silent: true,
+          successMessage: `Retorno de ${fornecedorNome(selectedRetornoFornecedor)} registrado.`,
+        })
+        setActiveTab('retorno-cotacao')
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel registrar retorno: ${error.message}`)
       }
-
-      if (retornoCotacao.status === 'RESPONDIDO') {
-        await comprasApi.registrarRespostaCotacao(
-          selectedRetornoCotacao.id,
-          selectedRetornoFornecedor.id,
-          {
-            prazo_entrega: retornoCotacao.prazoEntrega,
-            forma_pagamento: retornoCotacao.formaPagamento,
-            observacoes: retornoCotacao.observacoes,
-            usuario_id: Number(defaultUsuarioId || envioCotacao.usuarioId),
-            itens: retornoCotacao.itens.map((item) => ({
-              solicitacao_item_id: Number(item.solicitacaoItemId),
-              status_item: item.statusItem,
-              quantidade:
-                item.statusItem === 'INDISPONIVEL' ? null : Number(item.quantidade || 0),
-              valor_unitario:
-                item.statusItem === 'INDISPONIVEL' ? null : Number(item.valorUnitario || 0),
-              observacoes: item.observacoes || null,
-            })),
-          },
-        )
-      } else {
-        await comprasApi.atualizarFornecedorCotacaoStatus(
-          selectedRetornoCotacao.id,
-          selectedRetornoFornecedor.id,
-          {
-            status: retornoCotacao.status,
-            observacoes: retornoCotacao.observacoes,
-            usuario_id: Number(defaultUsuarioId || envioCotacao.usuarioId),
-          },
-        )
-      }
-
-      await loadBackendData({
-        silent: true,
-        successMessage: `Retorno de ${fornecedorNome(selectedRetornoFornecedor)} registrado.`,
-      })
-      setActiveTab('retorno-cotacao')
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel registrar retorno: ${error.message}`)
-    }
+    })
   }
 
   async function aprovarCotacao(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      if (!selectedAprovacaoCotacao) {
-        throw new Error('Selecione uma cotacao.')
-      }
+    return runLocked('Confirmando decisao', async () => {
+      setActionFeedback('')
 
-      if (aprovacaoCotacao.decisao === 'REPROVAR') {
+      try {
+        if (!selectedAprovacaoCotacao) {
+          throw new Error('Selecione uma cotacao.')
+        }
+
+        if (aprovacaoCotacao.decisao === 'REPROVAR') {
+          await comprasApi.atualizarCotacaoStatus(selectedAprovacaoCotacao.id, {
+            status: 'REPROVADA',
+            usuario_id: Number(aprovacaoCotacao.usuarioId),
+            observacao: aprovacaoCotacao.observacao,
+          })
+          await loadBackendData({
+            silent: true,
+            successMessage: `Solicitacao N° ${cotacaoNumero(selectedAprovacaoCotacao)} reprovada.`,
+          })
+          setActiveTab('cotacoes')
+          return
+        }
+
+        if (!selectedAprovacaoFornecedor) {
+          throw new Error('Selecione um fornecedor com resposta registrada.')
+        }
+
         await comprasApi.atualizarCotacaoStatus(selectedAprovacaoCotacao.id, {
-          status: 'REPROVADA',
+          status: 'APROVADA',
           usuario_id: Number(aprovacaoCotacao.usuarioId),
           observacao: aprovacaoCotacao.observacao,
         })
-        await loadBackendData({
-          silent: true,
-          successMessage: `${cotacaoNumero(selectedAprovacaoCotacao)} reprovada.`,
+
+        const compra = await comprasApi.criarCompra({
+          cotacao_id: selectedAprovacaoCotacao.id,
+          criado_por: Number(aprovacaoCotacao.usuarioId),
+          observacoes: aprovacaoCotacao.observacao,
         })
-        setActiveTab('cotacoes')
-        return
-      }
+        const fornecedorCompra = await comprasApi.adicionarFornecedorCompra(compra.id, {
+          fornecedor_id: Number(selectedAprovacaoFornecedor.fornecedor_id),
+          usuario_id: Number(aprovacaoCotacao.usuarioId),
+          justificativas: ['MENOR_PRECO'],
+          justificativa_texto: aprovacaoCotacao.observacao,
+          prazo_entrega: selectedAprovacaoFornecedor.prazo_entrega,
+          forma_pagamento: selectedAprovacaoFornecedor.forma_pagamento,
+        })
 
-      if (!selectedAprovacaoFornecedor) {
-        throw new Error('Selecione um fornecedor com resposta registrada.')
-      }
+        for (const item of selectedAprovacaoFornecedor.itens || []) {
+          if (item.status_item !== 'DISPONIVEL') {
+            continue
+          }
 
-      await comprasApi.atualizarCotacaoStatus(selectedAprovacaoCotacao.id, {
-        status: 'APROVADA',
-        usuario_id: Number(aprovacaoCotacao.usuarioId),
-        observacao: aprovacaoCotacao.observacao,
-      })
-
-      const compra = await comprasApi.criarCompra({
-        cotacao_id: selectedAprovacaoCotacao.id,
-        criado_por: Number(aprovacaoCotacao.usuarioId),
-        observacoes: aprovacaoCotacao.observacao,
-      })
-      const fornecedorCompra = await comprasApi.adicionarFornecedorCompra(compra.id, {
-        fornecedor_id: Number(selectedAprovacaoFornecedor.fornecedor_id),
-        usuario_id: Number(aprovacaoCotacao.usuarioId),
-        justificativas: ['MENOR_PRECO'],
-        justificativa_texto: aprovacaoCotacao.observacao,
-        prazo_entrega: selectedAprovacaoFornecedor.prazo_entrega,
-        forma_pagamento: selectedAprovacaoFornecedor.forma_pagamento,
-      })
-
-      for (const item of selectedAprovacaoFornecedor.itens || []) {
-        if (item.status_item !== 'DISPONIVEL') {
-          continue
+          await comprasApi.adicionarItemCompra(compra.id, fornecedorCompra.id, {
+            solicitacao_item_id: Number(item.solicitacao_item_id),
+            quantidade_pedida: Number(item.quantidade || 0),
+            usuario_id: Number(aprovacaoCotacao.usuarioId),
+          })
         }
 
-        await comprasApi.adicionarItemCompra(compra.id, fornecedorCompra.id, {
-          solicitacao_item_id: Number(item.solicitacao_item_id),
-          quantidade_pedida: Number(item.quantidade || 0),
+        await comprasApi.enviarCompraAprovacao(compra.id, {
           usuario_id: Number(aprovacaoCotacao.usuarioId),
+          observacao: 'Compra enviada para aprovacao pelo prototipo.',
         })
+        await comprasApi.aprovarCompra(compra.id, {
+          aprovador_id: Number(aprovacaoCotacao.usuarioId),
+          observacao: aprovacaoCotacao.observacao,
+        })
+
+        await loadBackendData({
+          silent: true,
+          successMessage: `Solicitacao N° ${compraNumero(compra)} criada e aprovada no backend.`,
+        })
+        setActiveTab('compras')
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel aprovar cotacao: ${error.message}`)
       }
-
-      await comprasApi.enviarCompraAprovacao(compra.id, {
-        usuario_id: Number(aprovacaoCotacao.usuarioId),
-        observacao: 'Compra enviada para aprovacao pelo prototipo.',
-      })
-      await comprasApi.aprovarCompra(compra.id, {
-        aprovador_id: Number(aprovacaoCotacao.usuarioId),
-        observacao: aprovacaoCotacao.observacao,
-      })
-
-      await loadBackendData({
-        silent: true,
-        successMessage: `${compraNumero(compra)} criada e aprovada no backend.`,
-      })
-      setActiveTab('compras')
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel aprovar cotacao: ${error.message}`)
-    }
+    })
   }
 
   async function createOrdemCompra() {
-    setActionFeedback('')
+    return runLocked('Gerando ordem de compra', async () => {
+      setActionFeedback('')
 
-    try {
-      if (!compraFornecedorElegivel) {
-        throw new Error('Nao ha compra aprovada sem ordem ativa.')
+      try {
+        if (!compraFornecedorElegivel) {
+          throw new Error('Nao ha compra aprovada sem ordem ativa.')
+        }
+
+        await comprasApi.criarOrdemCompra({
+          compra_fornecedor_id: Number(compraFornecedorElegivel.fornecedor.id),
+          usuario_id: Number(defaultUsuarioId),
+          observacoes: 'Ordem gerada pelo prototipo.',
+        })
+
+        await loadBackendData({
+          silent: true,
+          successMessage: `Solicitacao N° ${compraNumero(compraFornecedorElegivel.compra)} gerada no backend.`,
+        })
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel gerar ordem de compra: ${error.message}`)
       }
-
-      const ordem = await comprasApi.criarOrdemCompra({
-        compra_fornecedor_id: Number(compraFornecedorElegivel.fornecedor.id),
-        usuario_id: Number(defaultUsuarioId),
-        observacoes: 'Ordem gerada pelo prototipo.',
-      })
-
-      await loadBackendData({
-        silent: true,
-        successMessage: `${ordem.numero_oc || resourceCode('OC', ordem.id)} gerada no backend.`,
-      })
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel gerar ordem de compra: ${error.message}`)
-    }
+    })
   }
 
   async function handleCreateFornecedor(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      const fornecedor = await comprasApi.criarFornecedor({
-        cnpj: fornecedorForm.cnpj,
-        razao_social: fornecedorForm.razaoSocial,
-        nome_fantasia: fornecedorForm.nomeFantasia || null,
-        telefone: fornecedorForm.telefone || null,
-        email: fornecedorForm.email || null,
-        status: 'ATIVO',
-      })
+    return runLocked('Cadastrando fornecedor', async () => {
+      setActionFeedback('')
 
-      setFornecedorForm({
-        cnpj: '',
-        razaoSocial: '',
-        nomeFantasia: '',
-        telefone: '',
-        email: '',
-      })
-      setContatoForm((current) => ({
-        ...current,
-        fornecedorId: String(fornecedor.id),
-      }))
-      await loadBackendData({
-        silent: true,
-        successMessage: `Fornecedor ${fornecedorNome(fornecedor)} cadastrado.`,
-      })
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel cadastrar fornecedor: ${error.message}`)
-    }
+      try {
+        const fornecedor = await comprasApi.criarFornecedor({
+          cnpj: fornecedorForm.cnpj,
+          razao_social: fornecedorForm.razaoSocial,
+          nome_fantasia: fornecedorForm.nomeFantasia || null,
+          telefone: fornecedorForm.telefone || null,
+          email: fornecedorForm.email || null,
+          status: 'ATIVO',
+        })
+
+        setFornecedorForm({
+          cnpj: '',
+          razaoSocial: '',
+          nomeFantasia: '',
+          telefone: '',
+          email: '',
+        })
+        setContatoForm((current) => ({
+          ...current,
+          fornecedorId: String(fornecedor.id),
+        }))
+        await loadBackendData({
+          silent: true,
+          successMessage: `Fornecedor ${fornecedorNome(fornecedor)} cadastrado.`,
+        })
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel cadastrar fornecedor: ${error.message}`)
+      }
+    })
   }
 
   async function handleCreateContato(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      if (!contatoForm.fornecedorId) {
-        throw new Error('Cadastre ou selecione um fornecedor.')
+    return runLocked('Cadastrando contato', async () => {
+      setActionFeedback('')
+
+      try {
+        if (!contatoForm.fornecedorId) {
+          throw new Error('Cadastre ou selecione um fornecedor.')
+        }
+
+        const contato = await comprasApi.criarContatoFornecedor(contatoForm.fornecedorId, {
+          nome: contatoForm.nome,
+          cargo: contatoForm.cargo || null,
+          telefone: contatoForm.telefone || null,
+          email: contatoForm.email || null,
+        })
+
+        setContatoForm((current) => ({
+          ...current,
+          nome: '',
+          cargo: '',
+          telefone: '',
+          email: '',
+        }))
+        await loadBackendData({
+          silent: true,
+          successMessage: `Contato ${contato.nome} cadastrado.`,
+        })
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel cadastrar contato: ${error.message}`)
       }
-
-      const contato = await comprasApi.criarContatoFornecedor(contatoForm.fornecedorId, {
-        nome: contatoForm.nome,
-        cargo: contatoForm.cargo || null,
-        telefone: contatoForm.telefone || null,
-        email: contatoForm.email || null,
-      })
-
-      setContatoForm((current) => ({
-        ...current,
-        nome: '',
-        cargo: '',
-        telefone: '',
-        email: '',
-      }))
-      await loadBackendData({
-        silent: true,
-        successMessage: `Contato ${contato.nome} cadastrado.`,
-      })
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel cadastrar contato: ${error.message}`)
-    }
+    })
   }
 
   async function handleCreateGrupo(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      const grupo = await comprasApi.criarGrupo({
-        nome: grupoForm.nome,
-        ativo: true,
-      })
+    return runLocked('Cadastrando grupo', async () => {
+      setActionFeedback('')
 
-      setGrupoForm({ nome: '' })
-      setItemForm((current) => ({
-        ...current,
-        grupoId: String(grupo.id),
-      }))
-      await loadBackendData({
-        silent: true,
-        successMessage: `Grupo ${grupo.nome} cadastrado.`,
-      })
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel cadastrar grupo: ${error.message}`)
-    }
+      try {
+        const grupo = await comprasApi.criarGrupo({
+          nome: grupoForm.nome,
+          ativo: true,
+        })
+
+        setGrupoForm({ nome: '' })
+        setItemForm((current) => ({
+          ...current,
+          grupoId: String(grupo.id),
+        }))
+        await loadBackendData({
+          silent: true,
+          successMessage: `Grupo ${grupo.nome} cadastrado.`,
+        })
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel cadastrar grupo: ${error.message}`)
+      }
+    })
   }
 
   async function handleCreateItem(event) {
     event.preventDefault()
-    setActionFeedback('')
 
-    try {
-      if (!itemForm.grupoId) {
-        throw new Error('Cadastre ou selecione um grupo de item.')
+    return runLocked('Cadastrando item', async () => {
+      setActionFeedback('')
+
+      try {
+        if (!itemForm.grupoId) {
+          throw new Error('Cadastre ou selecione um grupo de item.')
+        }
+
+        const item = await comprasApi.criarItem({
+          codigo: itemForm.codigo,
+          descricao: itemForm.descricao,
+          unidade: itemForm.unidade,
+          classificacao: itemForm.classificacao,
+          grupo_id: Number(itemForm.grupoId),
+          controla_estoque: itemForm.controlaEstoque,
+          ativo: true,
+        })
+
+        setItemForm((current) => ({
+          ...current,
+          codigo: '',
+          descricao: '',
+          unidade: 'UN',
+          classificacao: 'CUSTO',
+          controlaEstoque: false,
+        }))
+        await loadBackendData({
+          silent: true,
+          successMessage: `Item ${item.codigo} cadastrado.`,
+        })
+      } catch (error) {
+        setActionFeedback(`Nao foi possivel cadastrar item: ${error.message}`)
       }
-
-      const item = await comprasApi.criarItem({
-        codigo: itemForm.codigo,
-        descricao: itemForm.descricao,
-        unidade: itemForm.unidade,
-        classificacao: itemForm.classificacao,
-        grupo_id: Number(itemForm.grupoId),
-        controla_estoque: itemForm.controlaEstoque,
-        ativo: true,
-      })
-
-      setItemForm((current) => ({
-        ...current,
-        codigo: '',
-        descricao: '',
-        unidade: 'UN',
-        classificacao: 'CUSTO',
-        controlaEstoque: false,
-      }))
-      await loadBackendData({
-        silent: true,
-        successMessage: `Item ${item.codigo} cadastrado.`,
-      })
-    } catch (error) {
-      setActionFeedback(`Nao foi possivel cadastrar item: ${error.message}`)
-    }
+    })
   }
 
   function handleRetornoCotacaoChange(cotacaoId) {
@@ -1340,6 +1515,7 @@ function App() {
               key={tab.id}
               type="button"
               className={activeTab === tab.id ? 'active' : ''}
+              disabled={actionLocked}
               onClick={() => setActiveTab(tab.id)}
             >
               {tab.label}
@@ -1363,10 +1539,15 @@ function App() {
             <h1>Fluxo de solicitacao, cotacao, aprovacao e ordem de compra</h1>
           </div>
           <div className="topbar-actions">
-            <button type="button" onClick={() => loadBackendData()} disabled={loadingData}>
+            <button type="button" onClick={handleLoadBackendData} disabled={loadingData || actionLocked}>
               {loadingData ? 'Carregando...' : 'Atualizar dados'}
             </button>
-            <button type="button" className="primary" onClick={() => setActiveTab('solicitacoes')}>
+            <button
+              type="button"
+              className="primary"
+              disabled={actionLocked}
+              onClick={() => setActiveTab('solicitacoes')}
+            >
               Nova solicitacao
             </button>
           </div>
@@ -1400,10 +1581,15 @@ function App() {
                 </div>
               </div>
               <div className="form-actions">
-                <button type="button" onClick={checkApi}>
+                <button type="button" onClick={checkApi} disabled={actionLocked}>
                   Checar novamente
                 </button>
-                <button type="button" className="primary" onClick={() => loadBackendData()}>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={loadingData || actionLocked}
+                  onClick={handleLoadBackendData}
+                >
                   Carregar dados
                 </button>
               </div>
@@ -1444,6 +1630,7 @@ function App() {
                           className="request-item"
                           type="button"
                           key={solicitacao.id}
+                          disabled={actionLocked}
                           onClick={() =>
                             setActiveTab(
                               solicitacao.status === 'ABERTA'
@@ -1487,10 +1674,45 @@ function App() {
                       }
                     />
                   </label>
+                  <div className="form-grid">
+                    <label>
+                      Urgencia
+                      <select
+                        value={draft.urgencia}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            urgencia: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="Normal">Normal</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Urgente">Urgente</option>
+                      </select>
+                    </label>
+                    <label>
+                      Centro de custo
+                      <input
+                        value={draft.centroCusto}
+                        placeholder="Ex.: Manutencao"
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            centroCusto: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
                   <button
                     type="submit"
                     className="primary"
-                    disabled={!draft.solicitanteId || !draft.descricaoNecessidade.trim()}
+                    disabled={
+                      actionLocked ||
+                      !draft.solicitanteId ||
+                      !draft.descricaoNecessidade.trim()
+                    }
                   >
                     Criar solicitacao
                   </button>
@@ -1510,6 +1732,16 @@ function App() {
                     ['Grupos', grupos.length],
                   ]}
                 />
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="danger-action"
+                    disabled={actionLocked || solicitacoes.length < 1}
+                    onClick={handleLimparSolicitacoesTeste}
+                  >
+                    Limpar solicitacoes
+                  </button>
+                </div>
               </section>
             </div>
 
@@ -1555,7 +1787,7 @@ function App() {
                     >
                       {solicitacoesClassificaveis.map((solicitacao) => (
                         <option key={solicitacao.id} value={solicitacao.id}>
-                          {solicitacaoNumero(solicitacao)} - {solicitacaoNecessidade(solicitacao)}
+                          {solicitacaoClassificacaoOption(solicitacao)}
                         </option>
                       ))}
                     </select>
@@ -1571,9 +1803,7 @@ function App() {
                           ['Numero', solicitacaoNumero(selectedClassificacaoSolicitacao)],
                           [
                             'Solicitante',
-                            selectedClassificacaoSolicitacao.solicitante_nome ||
-                              selectedClassificacaoSolicitacao.solicitante_email ||
-                              '-',
+                            solicitacaoSolicitante(selectedClassificacaoSolicitacao),
                           ],
                           ['Status', statusText(selectedClassificacaoSolicitacao.status)],
                           ['Itens lancados', itensClassificacao.length],
@@ -1641,6 +1871,7 @@ function App() {
                     type="submit"
                     className="primary"
                     disabled={
+                      actionLocked ||
                       !selectedClassificacaoSolicitacao ||
                       !selectedClassificacaoItem ||
                       Number(classificacaoForm.quantidade) <= 0
@@ -1669,6 +1900,7 @@ function App() {
                       </div>
                       <button
                         type="button"
+                        disabled={actionLocked}
                         onClick={() => handleRemoveClassificacaoItem(item.id)}
                       >
                         Remover
@@ -1697,7 +1929,7 @@ function App() {
                     <span>{solicitacoesCotaveis.length} disponiveis</span>
                   </div>
                   <label>
-                    Solicitar cotacao para
+                    Solicitacao classificada
                     <select
                       value={envioCotacao.solicitacaoId}
                       onChange={(event) =>
@@ -1709,7 +1941,7 @@ function App() {
                     >
                       {solicitacoesCotaveis.map((solicitacao) => (
                         <option key={solicitacao.id} value={solicitacao.id}>
-                          {solicitacaoNumero(solicitacao)} - {solicitacaoPrincipalItem(solicitacao)}
+                          {solicitacaoCotacaoOption(solicitacao)}
                         </option>
                       ))}
                     </select>
@@ -1718,9 +1950,12 @@ function App() {
                     <SummaryCard
                       rows={[
                         ['Numero', solicitacaoNumero(selectedEnvioSolicitacao)],
+                        ['Solicitante', solicitacaoSolicitante(selectedEnvioSolicitacao)],
                         ['Status', statusText(selectedEnvioSolicitacao.status)],
                         ['Necessidade', solicitacaoPrincipalItem(selectedEnvioSolicitacao)],
                         ['Itens', solicitacaoResumoItens(selectedEnvioSolicitacao)],
+                        ['Urgencia', solicitacaoUrgencia(selectedEnvioSolicitacao) || '-'],
+                        ['Centro de custo', solicitacaoCentroCusto(selectedEnvioSolicitacao) || '-'],
                       ]}
                     />
                   ) : (
@@ -1788,13 +2023,18 @@ function App() {
                     ))}
                   </div>
                   <div className="form-actions">
-                    <button type="button" onClick={() => setActiveTab('solicitacoes')}>
+                    <button
+                      type="button"
+                      disabled={actionLocked}
+                      onClick={() => setActiveTab('solicitacoes')}
+                    >
                       Voltar
                     </button>
                     <button
                       type="submit"
                       className="primary"
                       disabled={
+                        actionLocked ||
                         !selectedEnvioSolicitacao ||
                         envioCotacao.fornecedorIds.length < 1 ||
                         !envioCotacao.usuarioId
@@ -1817,7 +2057,6 @@ function App() {
               rows={cotacaoRows}
               columns={[
                 ['numero', 'Numero'],
-                ['solicitacao', 'Solicitacao'],
                 ['rodada', 'Rodada'],
                 ['respostas', 'Respostas'],
                 ['melhorValor', 'Melhor valor', formatCurrency],
@@ -1848,7 +2087,7 @@ function App() {
                     >
                       {cotacoesComFornecedores.map((cotacao) => (
                         <option key={cotacao.id} value={cotacao.id}>
-                          {cotacaoNumero(cotacao)} - Solicitação {numeroSimples(cotacao.solicitacao_id)}
+                          Solicitação {cotacaoNumero(cotacao)}
                         </option>
                       ))}
                     </select>
@@ -2028,13 +2267,22 @@ function App() {
                 )}
 
                 <div className="form-actions">
-                  <button type="button" onClick={() => setActiveTab('cotacoes')}>
+                  <button
+                    type="button"
+                    disabled={actionLocked}
+                    onClick={() => setActiveTab('cotacoes')}
+                  >
                     Voltar
                   </button>
                   <button
                     type="submit"
                     className="primary"
-                    disabled={!selectedRetornoCotacao || !selectedRetornoFornecedor || !defaultUsuarioId}
+                    disabled={
+                      actionLocked ||
+                      !selectedRetornoCotacao ||
+                      !selectedRetornoFornecedor ||
+                      !defaultUsuarioId
+                    }
                   >
                     Registrar retorno
                   </button>
@@ -2084,7 +2332,7 @@ function App() {
                     >
                       {cotacoesParaAprovacao.map((cotacao) => (
                         <option key={cotacao.id} value={cotacao.id}>
-                          {cotacaoNumero(cotacao)} - Solicitação {numeroSimples(cotacao.solicitacao_id)}
+                          Solicitação {cotacaoNumero(cotacao)}
                         </option>
                       ))}
                     </select>
@@ -2099,7 +2347,7 @@ function App() {
                         rows={[
                           ['Necessidade', solicitacaoPrincipalItem(selectedAprovacaoSolicitacao)],
                           ['Itens', solicitacaoResumoItens(selectedAprovacaoSolicitacao)],
-                          ['Cotacao', cotacaoNumero(selectedAprovacaoCotacao)],
+                          ['Solicitacao', cotacaoNumero(selectedAprovacaoCotacao)],
                           ['Rodada', selectedAprovacaoCotacao?.numero_rodada || 1],
                         ]}
                       />
@@ -2218,13 +2466,18 @@ function App() {
                     ))}
                 </div>
                 <div className="form-actions">
-                  <button type="button" onClick={() => setActiveTab('cotacoes')}>
+                  <button
+                    type="button"
+                    disabled={actionLocked}
+                    onClick={() => setActiveTab('cotacoes')}
+                  >
                     Voltar
                   </button>
                   <button
                     type="submit"
                     className="primary"
                     disabled={
+                      actionLocked ||
                       !selectedAprovacaoCotacao ||
                       !aprovacaoCotacao.usuarioId ||
                       (aprovacaoCotacao.decisao === 'APROVAR' && !selectedAprovacaoFornecedor)
@@ -2244,13 +2497,13 @@ function App() {
               <div className="section-heading">
                 <div>
                   <h2>Ordem de compra</h2>
-                  <span>gera OC para uma compra aprovada sem OC ativa</span>
+                  <span>gera ordem para uma compra aprovada sem ordem ativa</span>
                 </div>
                 <button
                   type="button"
                   className="primary"
                   onClick={createOrdemCompra}
-                  disabled={!compraFornecedorElegivel || !defaultUsuarioId}
+                  disabled={actionLocked || !compraFornecedorElegivel || !defaultUsuarioId}
                 >
                   Gerar ordem de compra
                 </button>
@@ -2258,7 +2511,7 @@ function App() {
               {compraFornecedorElegivel ? (
                 <SummaryCard
                   rows={[
-                    ['Compra', compraNumero(compraFornecedorElegivel.compra)],
+                    ['Solicitacao', compraNumero(compraFornecedorElegivel.compra)],
                     ['Fornecedor', fornecedorNome(compraFornecedorElegivel.fornecedor)],
                     ['Total', formatCurrency(compraTotal(compraFornecedorElegivel.compra))],
                   ]}
@@ -2273,7 +2526,6 @@ function App() {
               rows={compraRows}
               columns={[
                 ['numero', 'Numero'],
-                ['solicitacao', 'Solicitacao'],
                 ['fornecedor', 'Fornecedor'],
                 ['aprovador', 'Responsavel'],
                 ['total', 'Total', formatCurrency],
@@ -2282,11 +2534,10 @@ function App() {
             />
             <TableSection
               title="Ordens de compra"
-              subtitle="OCs geradas para envio"
+              subtitle="Ordens geradas para envio"
               rows={ordemRows}
               columns={[
                 ['numero', 'Numero'],
-                ['compra', 'Compra'],
                 ['fornecedor', 'Fornecedor'],
                 ['total', 'Total', formatCurrency],
                 ['status', 'Status', StatusBadge],
@@ -2379,7 +2630,11 @@ function App() {
                   <button
                     type="submit"
                     className="primary"
-                    disabled={!fornecedorForm.cnpj || !fornecedorForm.razaoSocial}
+                    disabled={
+                      actionLocked ||
+                      !fornecedorForm.cnpj ||
+                      !fornecedorForm.razaoSocial
+                    }
                   >
                     Cadastrar fornecedor
                   </button>
@@ -2467,7 +2722,7 @@ function App() {
                   <button
                     type="submit"
                     className="primary"
-                    disabled={!contatoForm.fornecedorId || !contatoForm.nome}
+                    disabled={actionLocked || !contatoForm.fornecedorId || !contatoForm.nome}
                   >
                     Cadastrar contato
                   </button>
@@ -2497,7 +2752,11 @@ function App() {
                       placeholder="Manutencao, Almoxarifado, EPIs..."
                     />
                   </label>
-                  <button type="submit" className="primary" disabled={!grupoForm.nome}>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={actionLocked || !grupoForm.nome}
+                  >
                     Cadastrar grupo
                   </button>
                 </form>
@@ -2607,6 +2866,7 @@ function App() {
                     type="submit"
                     className="primary"
                     disabled={
+                      actionLocked ||
                       !itemForm.codigo ||
                       !itemForm.descricao ||
                       !itemForm.unidade ||

@@ -62,6 +62,12 @@ function validateStatus(status) {
 }
 
 // Services concentram regras de negócio e mantêm controllers desacoplados do banco.
+function validateConfirmacaoLimpeza(confirmacao) {
+  if (confirmacao !== 'LIMPAR_SOLICITACOES') {
+    throw createValidationError('Confirmacao invalida para limpar solicitacoes.');
+  }
+}
+
 async function list() {
   return solicitacoesRepository.findAll();
 }
@@ -98,9 +104,16 @@ async function updateStatus(id, data) {
   return solicitacoesRepository.updateStatus(id, data.status);
 }
 
+async function deleteAllForTests(data) {
+  validateConfirmacaoLimpeza(data?.confirmacao);
+
+  return solicitacoesRepository.deleteAllForTests();
+}
+
 export default {
   list,
   findOne,
   create,
-  updateStatus
+  updateStatus,
+  deleteAllForTests
 };

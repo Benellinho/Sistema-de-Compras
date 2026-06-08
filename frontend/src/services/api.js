@@ -61,6 +61,10 @@ export const comprasApi = {
   criarGrupo: (data) => jsonRequest(API_ROUTES.grupos, 'POST', data),
   buscarSolicitacao: (id) => request(`${API_ROUTES.solicitacoes}/${id}`),
   criarSolicitacao: (data) => jsonRequest(API_ROUTES.solicitacoes, 'POST', data),
+  limparSolicitacoesTeste: () =>
+    jsonRequest(`${API_ROUTES.solicitacoes}/limpar-testes`, 'DELETE', {
+      confirmacao: 'LIMPAR_SOLICITACOES',
+    }),
   adicionarItemSolicitacao: (solicitacaoId, data) =>
     jsonRequest(`${API_ROUTES.solicitacoes}/${solicitacaoId}/itens`, 'POST', data),
   removerItemSolicitacao: (solicitacaoId, itemSolicitacaoId) =>

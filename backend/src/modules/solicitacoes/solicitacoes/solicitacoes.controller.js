@@ -42,3 +42,12 @@ export async function updateSolicitacaoStatus(req, res, next) {
     sendError(res, error);
   }
 }
+
+export async function deleteAllSolicitacoesForTests(req, res, next) {
+  try {
+    const result = await solicitacoesService.deleteAllForTests(req.body);
+    res.json(result);
+  } catch (error) {
+    sendError(res, error);
+  }
+}

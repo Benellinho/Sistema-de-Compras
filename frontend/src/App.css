@@ -110,6 +110,17 @@ button:hover {
   border-color: #115e59;
 }
 
+.danger-action {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+}
+
+.danger-action:hover {
+  background: #991b1b;
+  border-color: #991b1b;
+}
+
 .api-panel {
   margin-top: auto;
   gap: 10px;

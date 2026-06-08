@@ -115,6 +115,41 @@ async function updateStatus(id, status) {
   return findById(id);
 }
 
+async function countFluxoSolicitacoes(database) {
+  return database.get(`
+    SELECT
+      (SELECT COUNT(*) FROM solicitacoes_compra) AS solicitacoes,
+      (SELECT COUNT(*) FROM solicitacao_compra_itens) AS itens,
+      (SELECT COUNT(*) FROM cotacoes) AS cotacoes,
+      (SELECT COUNT(*) FROM compras) AS compras,
+      (SELECT COUNT(*) FROM ordens_compra) AS ordens
+  `);
+}
+
+async function deleteAllForTests() {
+  const database = await getDatabase();
+
+  await database.exec('BEGIN');
+
+  try {
+    const counts = await countFluxoSolicitacoes(database);
+
+    await database.exec('TRUNCATE TABLE solicitacoes_compra RESTART IDENTITY CASCADE');
+    await database.exec('COMMIT');
+
+    return {
+      solicitacoes_removidas: Number(counts?.solicitacoes || 0),
+      itens_removidos: Number(counts?.itens || 0),
+      cotacoes_removidas: Number(counts?.cotacoes || 0),
+      compras_removidas: Number(counts?.compras || 0),
+      ordens_removidas: Number(counts?.ordens || 0)
+    };
+  } catch (error) {
+    await database.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 export default {
   findAll,
   findById,
@@ -122,5 +157,6 @@ export default {
   countItensBySolicitacaoId,
   countItensCatalogadosBySolicitacaoId,
   create,
-  updateStatus
+  updateStatus,
+  deleteAllForTests
 };
