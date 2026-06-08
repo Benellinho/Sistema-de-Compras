@@ -7,6 +7,7 @@ import testBloquearItemForaDaSolicitacao from './cotacoes/bloquear-item-fora-da-
 import testBloquearQuantidadeMaior from './cotacoes/bloquear-quantidade-maior.test.js';
 import testBloquearRespostaCotacaoEncerrada from './cotacoes/bloquear-resposta-cotacao-encerrada.test.js';
 import testBloquearSolicitacaoAprovadaSemItens from './cotacoes/bloquear-solicitacao-aprovada-sem-itens.test.js';
+import testBloquearSolicitacaoAprovadaApenasNecessidadeLivre from './cotacoes/bloquear-solicitacao-aprovada-apenas-necessidade-livre.test.js';
 import testBloquearSolicitacaoNaoAprovada from './cotacoes/bloquear-solicitacao-nao-aprovada.test.js';
 import testBloquearSolicitacaoReprovada from './cotacoes/bloquear-solicitacao-reprovada.test.js';
 import testBloquearValorNegativo from './cotacoes/bloquear-valor-negativo.test.js';
@@ -31,6 +32,7 @@ const tests = [
       ['bloquear solicitacao nao aprovada', testBloquearSolicitacaoNaoAprovada],
       ['bloquear solicitacao reprovada', testBloquearSolicitacaoReprovada],
       ['bloquear solicitacao aprovada sem itens', testBloquearSolicitacaoAprovadaSemItens],
+      ['bloquear solicitacao aprovada apenas necessidade livre', testBloquearSolicitacaoAprovadaApenasNecessidadeLivre],
       ['bloquear fornecedor duplicado', testBloquearFornecedorDuplicado],
       ['bloquear fornecedor inexistente', testBloquearFornecedorInexistente],
       ['bloquear quantidade maior', testBloquearQuantidadeMaior],

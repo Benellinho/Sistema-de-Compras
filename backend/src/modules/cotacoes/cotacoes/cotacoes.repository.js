@@ -498,6 +498,7 @@ async function findSolicitacaoItensByCotacaoId(cotacaoId) {
       INNER JOIN solicitacao_compra_itens si ON si.solicitacao_id = c.solicitacao_id
       LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
       WHERE c.id = ?
+        AND si.item_id IS NOT NULL
       ORDER BY si.id ASC
     `,
     cotacaoId
@@ -582,6 +583,7 @@ async function findSolicitacaoItemForCotacao(cotacaoId, solicitacaoItemId) {
       INNER JOIN cotacoes c ON c.solicitacao_id = si.solicitacao_id
       WHERE c.id = ?
         AND si.id = ?
+        AND si.item_id IS NOT NULL
     `,
     [cotacaoId, solicitacaoItemId]
   );
@@ -628,6 +630,7 @@ async function getComparativo(cotacaoId) {
       INNER JOIN solicitacao_compra_itens si ON si.solicitacao_id = c.solicitacao_id
       LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
       WHERE c.id = ?
+        AND si.item_id IS NOT NULL
       ORDER BY si.id ASC
     `,
     cotacaoId

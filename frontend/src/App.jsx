@@ -7,6 +7,7 @@ const tabs = [
   { id: 'inicio', label: 'Inicio' },
   { id: 'painel', label: 'Painel' },
   { id: 'solicitacoes', label: 'Solicitacoes' },
+  { id: 'classificar-solicitacao', label: 'Classificar' },
   { id: 'enviar-cotacao', label: 'Enviar cotacao' },
   { id: 'cotacoes', label: 'Cotacoes' },
   { id: 'retorno-cotacao', label: 'Retorno cotacao' },
@@ -101,8 +102,12 @@ function resourceCode(prefix, id) {
   return `${prefix}-${new Date().getFullYear()}-${String(id || 0).padStart(6, '0')}`
 }
 
+function numeroSimples(id) {
+  return id ? String(Number(id)) : '-'
+}
+
 function solicitacaoNumero(solicitacao) {
-  return solicitacao?.id ? String(Number(solicitacao.id)) : '-'
+  return numeroSimples(solicitacao?.id)
 }
 
 function cotacaoNumero(cotacao) {
@@ -117,24 +122,55 @@ function solicitacaoItens(solicitacao) {
   return Array.isArray(solicitacao?.itens) ? solicitacao.itens : []
 }
 
-function solicitacaoPrincipalItem(solicitacao) {
-  const firstItem = solicitacaoItens(solicitacao)[0]
+function solicitacaoItensCatalogados(solicitacao) {
+  return solicitacaoItens(solicitacao).filter((item) => item.item_id !== null && item.item_id !== undefined)
+}
+
+function itemSolicitacaoDescricao(item) {
   return (
-    firstItem?.descricao_necessidade ||
-    firstItem?.item_descricao ||
-    firstItem?.descricao ||
+    (item?.item_codigo && item?.item_descricao
+      ? `${item.item_codigo} - ${item.item_descricao}`
+      : item?.item_descricao) ||
+    item?.descricao ||
+    item?.descricao_necessidade ||
+    'Item'
+  )
+}
+
+function solicitacaoNecessidade(solicitacao) {
+  const firstFreeTextItem = solicitacaoItens(solicitacao).find(
+    (item) => item.item_id === null || item.item_id === undefined,
+  )
+  const firstCatalogItem = solicitacaoItensCatalogados(solicitacao)[0]
+  const firstCatalogDescription = firstCatalogItem
+    ? firstCatalogItem.descricao_necessidade || itemSolicitacaoDescricao(firstCatalogItem)
+    : ''
+
+  return (
+    solicitacao?.observacoes ||
+    firstFreeTextItem?.descricao_necessidade ||
+    firstCatalogDescription ||
     'Sem necessidade'
   )
 }
 
-function solicitacaoQuantidade(solicitacao) {
-  const firstItem = solicitacaoItens(solicitacao)[0]
+function solicitacaoPrincipalItem(solicitacao) {
+  return solicitacaoNecessidade(solicitacao)
+}
 
-  if (!firstItem) {
-    return '-'
+function solicitacaoResumoItens(solicitacao) {
+  const itensCatalogados = solicitacaoItensCatalogados(solicitacao)
+
+  if (itensCatalogados.length < 1) {
+    return 'Aguardando itens'
   }
 
-  return `${Number(firstItem.quantidade || 0)} ${firstItem.unidade_snapshot || ''}`.trim()
+  const firstItem = itensCatalogados[0]
+  const firstDescription = itemSolicitacaoDescricao(firstItem)
+
+  return itensCatalogados.length === 1
+    ? firstDescription
+    : `${firstDescription} +${itensCatalogados.length - 1}`
 }
 
 function isActiveUsuario(usuario) {
@@ -224,9 +260,9 @@ function buildRetornoItens(cotacao, solicitacoes) {
     (item) => Number(item.id) === Number(cotacao?.solicitacao_id),
   )
 
-  return solicitacaoItens(solicitacao).map((item) => ({
+  return solicitacaoItensCatalogados(solicitacao).map((item) => ({
     solicitacaoItemId: item.id,
-    descricao: item.descricao_necessidade || item.item_descricao || item.descricao || 'Item',
+    descricao: itemSolicitacaoDescricao(item),
     quantidade: Number(item.quantidade || 0),
     unidade: item.unidade_snapshot || item.unidade || '',
     statusItem: 'DISPONIVEL',
@@ -256,6 +292,12 @@ function App() {
   const [draft, setDraft] = useState({
     solicitanteId: '',
     descricaoNecessidade: '',
+  })
+  const [classificacaoForm, setClassificacaoForm] = useState({
+    solicitacaoId: '',
+    itemId: '',
+    quantidade: 1,
+    observacoes: '',
   })
   const [envioCotacao, setEnvioCotacao] = useState({
     solicitacaoId: '',
@@ -315,10 +357,17 @@ function App() {
   const itensAtivos = useMemo(() => itens.filter(isActiveItem), [itens])
   const defaultUsuarioId = usuariosAtivos[0]?.id ? String(usuariosAtivos[0].id) : ''
 
+  const solicitacoesClassificaveis = useMemo(
+    () => solicitacoes.filter((solicitacao) => solicitacao.status === 'ABERTA'),
+    [solicitacoes],
+  )
+
   const solicitacoesCotaveis = useMemo(
     () =>
-      solicitacoes.filter((solicitacao) =>
-        ['ABERTA', 'APROVADA', 'COTACAO_REPROVADA'].includes(solicitacao.status),
+      solicitacoes.filter(
+        (solicitacao) =>
+          ['ABERTA', 'APROVADA', 'COTACAO_REPROVADA'].includes(solicitacao.status) &&
+          solicitacaoItensCatalogados(solicitacao).length > 0,
       ),
     [solicitacoes],
   )
@@ -347,6 +396,24 @@ function App() {
         (solicitacao) => Number(solicitacao.id) === Number(envioCotacao.solicitacaoId),
       ),
     [envioCotacao.solicitacaoId, solicitacoes],
+  )
+
+  const selectedClassificacaoSolicitacao = useMemo(
+    () =>
+      solicitacoes.find(
+        (solicitacao) => Number(solicitacao.id) === Number(classificacaoForm.solicitacaoId),
+      ),
+    [classificacaoForm.solicitacaoId, solicitacoes],
+  )
+
+  const selectedClassificacaoItem = useMemo(
+    () => itensAtivos.find((item) => Number(item.id) === Number(classificacaoForm.itemId)),
+    [classificacaoForm.itemId, itensAtivos],
+  )
+
+  const itensClassificacao = useMemo(
+    () => solicitacaoItensCatalogados(selectedClassificacaoSolicitacao),
+    [selectedClassificacaoSolicitacao],
   )
 
   const selectedRetornoCotacao = useMemo(
@@ -465,6 +532,7 @@ function App() {
         numero: solicitacaoNumero(solicitacao),
         solicitante: solicitacao.solicitante_nome || solicitacao.solicitante_email || '-',
         item: solicitacaoPrincipalItem(solicitacao),
+        itens: solicitacaoItensCatalogados(solicitacao).length,
         status: solicitacao.status,
         data: formatDate(solicitacao.created_at),
       })),
@@ -485,7 +553,7 @@ function App() {
         return {
           id: cotacao.id,
           numero: cotacaoNumero(cotacao),
-          solicitacao: resourceCode('SC', cotacao.solicitacao_id),
+          solicitacao: numeroSimples(cotacao.solicitacao_id),
           rodada: cotacao.numero_rodada || 1,
           status: cotacao.status,
           respostas: `${respondidos}/${convidados}`,
@@ -503,7 +571,7 @@ function App() {
         return {
           id: compra.id,
           numero: compraNumero(compra),
-          solicitacao: resourceCode('SC', compra.solicitacao_id),
+          solicitacao: numeroSimples(compra.solicitacao_id),
           fornecedor: fornecedorNome(fornecedor),
           aprovador: compra.criado_por_nome || '-',
           total: compraTotal(compra),
@@ -538,15 +606,21 @@ function App() {
     usuariosData,
     fornecedoresData,
     gruposData,
+    itensData,
     solicitacoesData,
     cotacoesData,
   }) {
     const nextUsuariosAtivos = usuariosData.filter(isActiveUsuario)
     const nextFornecedoresAtivos = fornecedoresData.filter(isActiveFornecedor)
     const nextGruposAtivos = gruposData.filter(isActiveItem)
+    const nextItensAtivos = itensData.filter(isActiveItem)
     const nextDefaultUsuarioId = nextUsuariosAtivos[0]?.id ? String(nextUsuariosAtivos[0].id) : ''
+    const nextSolicitacoesClassificaveis = solicitacoesData.filter(
+      (solicitacao) => solicitacao.status === 'ABERTA',
+    )
     const nextSolicitacoesCotaveis = solicitacoesData.filter((solicitacao) =>
-      ['ABERTA', 'APROVADA', 'COTACAO_REPROVADA'].includes(solicitacao.status),
+      ['ABERTA', 'APROVADA', 'COTACAO_REPROVADA'].includes(solicitacao.status) &&
+      solicitacaoItensCatalogados(solicitacao).length > 0,
     )
     const nextCotacoesAbertas = cotacoesData.filter(
       (cotacao) => !finalCotacaoStatuses.has(cotacao.status),
@@ -566,6 +640,28 @@ function App() {
       return {
         ...current,
         solicitanteId: userIsValid ? current.solicitanteId : nextDefaultUsuarioId,
+      }
+    })
+
+    setClassificacaoForm((current) => {
+      const solicitacaoIsValid = nextSolicitacoesClassificaveis.some(
+        (solicitacao) => Number(solicitacao.id) === Number(current.solicitacaoId),
+      )
+      const itemIsValid = nextItensAtivos.some((item) => Number(item.id) === Number(current.itemId))
+
+      return {
+        ...current,
+        solicitacaoId: solicitacaoIsValid
+          ? current.solicitacaoId
+          : nextSolicitacoesClassificaveis[0]?.id
+            ? String(nextSolicitacoesClassificaveis[0].id)
+            : '',
+        itemId: itemIsValid
+          ? current.itemId
+          : nextItensAtivos[0]?.id
+            ? String(nextItensAtivos[0].id)
+            : '',
+        quantidade: current.quantidade || 1,
       }
     })
 
@@ -795,13 +891,7 @@ function App() {
 
       const solicitacao = await comprasApi.criarSolicitacao({
         solicitante_id: Number(draft.solicitanteId),
-        observacoes: null,
-      })
-
-      await comprasApi.adicionarItemSolicitacao(solicitacao.id, {
-        quantidade: 1,
-        descricao_necessidade: descricaoNecessidade,
-        observacoes: null,
+        observacoes: descricaoNecessidade,
       })
 
       setDraft((current) => ({
@@ -812,9 +902,67 @@ function App() {
         silent: true,
         successMessage: `Solicitação N° ${solicitacaoNumero(solicitacao)} registrada`,
       })
-      setActiveTab('solicitacoes')
+      setClassificacaoForm((current) => ({
+        ...current,
+        solicitacaoId: String(solicitacao.id),
+      }))
+      setActiveTab('classificar-solicitacao')
     } catch (error) {
       setActionFeedback(`Nao foi possivel criar solicitacao: ${error.message}`)
+    }
+  }
+
+  async function handleClassificarSolicitacao(event) {
+    event.preventDefault()
+    setActionFeedback('')
+
+    try {
+      if (!selectedClassificacaoSolicitacao) {
+        throw new Error('Selecione uma solicitacao aberta.')
+      }
+
+      if (!selectedClassificacaoItem) {
+        throw new Error('Selecione um item cadastrado.')
+      }
+
+      await comprasApi.adicionarItemSolicitacao(selectedClassificacaoSolicitacao.id, {
+        item_id: Number(classificacaoForm.itemId),
+        quantidade: Number(classificacaoForm.quantidade || 0),
+        descricao_necessidade: selectedClassificacaoItem.descricao,
+        observacoes: classificacaoForm.observacoes || null,
+      })
+
+      setClassificacaoForm((current) => ({
+        ...current,
+        quantidade: 1,
+        observacoes: '',
+      }))
+      await loadBackendData({
+        silent: true,
+        successMessage: `Item lancado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
+      })
+      setActiveTab('classificar-solicitacao')
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel lancar item: ${error.message}`)
+    }
+  }
+
+  async function handleRemoveClassificacaoItem(itemSolicitacaoId) {
+    setActionFeedback('')
+
+    try {
+      if (!selectedClassificacaoSolicitacao) {
+        throw new Error('Selecione uma solicitacao aberta.')
+      }
+
+      await comprasApi.removerItemSolicitacao(selectedClassificacaoSolicitacao.id, itemSolicitacaoId)
+      await loadBackendData({
+        silent: true,
+        successMessage: `Item removido da solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
+      })
+      setActiveTab('classificar-solicitacao')
+    } catch (error) {
+      setActionFeedback(`Nao foi possivel remover item: ${error.message}`)
     }
   }
 
@@ -831,6 +979,10 @@ function App() {
 
       if (envioCotacao.fornecedorIds.length < 1) {
         throw new Error('Selecione ao menos um fornecedor.')
+      }
+
+      if (solicitacaoItensCatalogados(selectedEnvioSolicitacao).length < 1) {
+        throw new Error('Lance ao menos um item cadastrado antes de enviar para cotacao.')
       }
 
       if (selectedEnvioSolicitacao.status === 'ABERTA') {
@@ -1292,7 +1444,13 @@ function App() {
                           className="request-item"
                           type="button"
                           key={solicitacao.id}
-                          onClick={() => setActiveTab('solicitacoes')}
+                          onClick={() =>
+                            setActiveTab(
+                              solicitacao.status === 'ABERTA'
+                                ? 'classificar-solicitacao'
+                                : 'solicitacoes',
+                            )
+                          }
                         >
                           <strong>{solicitacaoNumero(solicitacao)}</strong>
                           <span>{solicitacaoPrincipalItem(solicitacao)}</span>
@@ -1363,11 +1521,166 @@ function App() {
                 ['numero', 'Numero'],
                 ['solicitante', 'Solicitante'],
                 ['item', 'Necessidade'],
+                ['itens', 'Itens'],
                 ['status', 'Status', StatusBadge],
                 ['data', 'Data'],
               ]}
             />
           </div>
+        )}
+
+        {activeTab === 'classificar-solicitacao' && (
+          <ActionScreen
+            title="Classificar solicitacao"
+            subtitle="Converte a necessidade em itens cadastrados para compra"
+            endpoint="POST /solicitacoes/:id/itens"
+          >
+            <form className="action-form" onSubmit={handleClassificarSolicitacao}>
+              <div className="action-grid">
+                <section className="section-block">
+                  <div className="section-heading">
+                    <h2>Necessidade</h2>
+                    <span>{solicitacoesClassificaveis.length} abertas</span>
+                  </div>
+                  <label>
+                    Solicitação
+                    <select
+                      value={classificacaoForm.solicitacaoId}
+                      onChange={(event) =>
+                        setClassificacaoForm((current) => ({
+                          ...current,
+                          solicitacaoId: event.target.value,
+                        }))
+                      }
+                    >
+                      {solicitacoesClassificaveis.map((solicitacao) => (
+                        <option key={solicitacao.id} value={solicitacao.id}>
+                          {solicitacaoNumero(solicitacao)} - {solicitacaoNecessidade(solicitacao)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {selectedClassificacaoSolicitacao ? (
+                    <>
+                      <div className="need-box">
+                        <strong>Texto da solicitação</strong>
+                        <p>{solicitacaoNecessidade(selectedClassificacaoSolicitacao)}</p>
+                      </div>
+                      <SummaryCard
+                        rows={[
+                          ['Numero', solicitacaoNumero(selectedClassificacaoSolicitacao)],
+                          [
+                            'Solicitante',
+                            selectedClassificacaoSolicitacao.solicitante_nome ||
+                              selectedClassificacaoSolicitacao.solicitante_email ||
+                              '-',
+                          ],
+                          ['Status', statusText(selectedClassificacaoSolicitacao.status)],
+                          ['Itens lancados', itensClassificacao.length],
+                        ]}
+                      />
+                    </>
+                  ) : (
+                    <EmptyState text="Nao ha solicitacao aberta para classificar." />
+                  )}
+                </section>
+
+                <section className="section-block">
+                  <div className="section-heading">
+                    <h2>Lancar item</h2>
+                    <span>{itensAtivos.length} itens ativos</span>
+                  </div>
+                  <label>
+                    Item correspondente
+                    <select
+                      value={classificacaoForm.itemId}
+                      onChange={(event) =>
+                        setClassificacaoForm((current) => ({
+                          ...current,
+                          itemId: event.target.value,
+                        }))
+                      }
+                    >
+                      {itensAtivos.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.codigo ? `${item.codigo} - ${item.descricao}` : item.descricao}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="form-grid single-column">
+                    <label>
+                      Quantidade
+                      <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={classificacaoForm.quantidade}
+                        onChange={(event) =>
+                          setClassificacaoForm((current) => ({
+                            ...current,
+                            quantidade: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      Observacoes do item
+                      <textarea
+                        value={classificacaoForm.observacoes}
+                        onChange={(event) =>
+                          setClassificacaoForm((current) => ({
+                            ...current,
+                            observacoes: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={
+                      !selectedClassificacaoSolicitacao ||
+                      !selectedClassificacaoItem ||
+                      Number(classificacaoForm.quantidade) <= 0
+                    }
+                  >
+                    Lancar item
+                  </button>
+                </section>
+              </div>
+            </form>
+
+            <section className="section-block">
+              <div className="section-heading">
+                <h2>Itens lancados</h2>
+                <span>{itensClassificacao.length} itens</span>
+              </div>
+              {itensClassificacao.length > 0 ? (
+                <div className="classification-items">
+                  {itensClassificacao.map((item) => (
+                    <div className="classification-item-row" key={item.id}>
+                      <div>
+                        <strong>{itemSolicitacaoDescricao(item)}</strong>
+                        <span>
+                          {Number(item.quantidade || 0)} {item.unidade_snapshot || ''}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveClassificacaoItem(item.id)}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState text="Nenhum item lancado para esta solicitacao." />
+              )}
+            </section>
+          </ActionScreen>
         )}
 
         {activeTab === 'enviar-cotacao' && (
@@ -1407,7 +1720,7 @@ function App() {
                         ['Numero', solicitacaoNumero(selectedEnvioSolicitacao)],
                         ['Status', statusText(selectedEnvioSolicitacao.status)],
                         ['Necessidade', solicitacaoPrincipalItem(selectedEnvioSolicitacao)],
-                        ['Quantidade', solicitacaoQuantidade(selectedEnvioSolicitacao)],
+                        ['Itens', solicitacaoResumoItens(selectedEnvioSolicitacao)],
                       ]}
                     />
                   ) : (
@@ -1535,7 +1848,7 @@ function App() {
                     >
                       {cotacoesComFornecedores.map((cotacao) => (
                         <option key={cotacao.id} value={cotacao.id}>
-                          {cotacaoNumero(cotacao)} - {resourceCode('SC', cotacao.solicitacao_id)}
+                          {cotacaoNumero(cotacao)} - Solicitação {numeroSimples(cotacao.solicitacao_id)}
                         </option>
                       ))}
                     </select>
@@ -1545,7 +1858,7 @@ function App() {
                       rows={[
                         ['Solicitacao', solicitacaoNumero(selectedRetornoSolicitacao)],
                         ['Necessidade', solicitacaoPrincipalItem(selectedRetornoSolicitacao)],
-                        ['Quantidade', solicitacaoQuantidade(selectedRetornoSolicitacao)],
+                        ['Itens', solicitacaoResumoItens(selectedRetornoSolicitacao)],
                         ['Status cotacao', statusText(selectedRetornoCotacao?.status)],
                       ]}
                     />
@@ -1771,7 +2084,7 @@ function App() {
                     >
                       {cotacoesParaAprovacao.map((cotacao) => (
                         <option key={cotacao.id} value={cotacao.id}>
-                          {cotacaoNumero(cotacao)} - {resourceCode('SC', cotacao.solicitacao_id)}
+                          {cotacaoNumero(cotacao)} - Solicitação {numeroSimples(cotacao.solicitacao_id)}
                         </option>
                       ))}
                     </select>
@@ -1785,7 +2098,7 @@ function App() {
                       <SummaryCard
                         rows={[
                           ['Necessidade', solicitacaoPrincipalItem(selectedAprovacaoSolicitacao)],
-                          ['Quantidade', solicitacaoQuantidade(selectedAprovacaoSolicitacao)],
+                          ['Itens', solicitacaoResumoItens(selectedAprovacaoSolicitacao)],
                           ['Cotacao', cotacaoNumero(selectedAprovacaoCotacao)],
                           ['Rodada', selectedAprovacaoCotacao?.numero_rodada || 1],
                         ]}

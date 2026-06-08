@@ -581,6 +581,57 @@ button:disabled {
   background: var(--bg);
 }
 
+.need-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.need-box strong {
+  color: var(--text-strong);
+}
+
+.need-box p {
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.classification-items {
+  display: grid;
+  gap: 10px;
+}
+
+.classification-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.classification-item-row div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.classification-item-row strong {
+  color: var(--text-strong);
+}
+
+.classification-item-row span {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
 .quote-items,
 .response-history {
   display: grid;
@@ -779,6 +830,7 @@ td {
   .split-layout,
   .action-grid,
   .form-grid,
+  .classification-item-row,
   .quote-item-row,
   .response-card {
     grid-template-columns: 1fr;

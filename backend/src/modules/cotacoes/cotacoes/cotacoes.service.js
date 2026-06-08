@@ -106,10 +106,10 @@ async function create(data) {
     throw createValidationError('Cotacao so pode ser criada para solicitacao aprovada ou com cotacao reprovada.');
   }
 
-  const itensCount = await solicitacoesRepository.countItensBySolicitacaoId(data.solicitacao_id);
+  const itensCount = await solicitacoesRepository.countItensCatalogadosBySolicitacaoId(data.solicitacao_id);
 
   if (itensCount < 1) {
-    throw createValidationError('Solicitacao precisa ter ao menos um item para cotacao.');
+    throw createValidationError('Solicitacao precisa ter ao menos um item cadastrado para cotacao.');
   }
 
   await validateUsuarioExiste(data?.criado_por, 'Usuario criador');

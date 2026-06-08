@@ -72,10 +72,10 @@ async function decide(solicitacaoId, data) {
     throw createValidationError('Observacao e obrigatoria para reprovar.');
   }
 
-  const itensCount = await solicitacoesRepository.countItensBySolicitacaoId(solicitacaoId);
+  const itensCount = await solicitacoesRepository.countItensCatalogadosBySolicitacaoId(solicitacaoId);
 
   if (itensCount < 1) {
-    throw createValidationError('Solicitacao precisa ter ao menos um item para aprovacao.');
+    throw createValidationError('Solicitacao precisa ter ao menos um item cadastrado para aprovacao.');
   }
 
   const aprovacaoExistente = await aprovacoesRepository.findBySolicitacaoId(solicitacaoId);

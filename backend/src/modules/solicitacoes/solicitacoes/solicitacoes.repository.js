@@ -76,6 +76,21 @@ async function countItensBySolicitacaoId(id) {
   return result?.total ?? 0;
 }
 
+async function countItensCatalogadosBySolicitacaoId(id) {
+  const database = await getDatabase();
+  const result = await database.get(
+    `
+      SELECT COUNT(*) AS total
+      FROM solicitacao_compra_itens
+      WHERE solicitacao_id = ?
+        AND item_id IS NOT NULL
+    `,
+    id
+  );
+
+  return result?.total ?? 0;
+}
+
 async function create({ solicitante_id, status = 'ABERTA', observacoes = null }) {
   const database = await getDatabase();
   const result = await database.run(
@@ -105,6 +120,7 @@ export default {
   findById,
   findItensBySolicitacaoId,
   countItensBySolicitacaoId,
+  countItensCatalogadosBySolicitacaoId,
   create,
   updateStatus
 };

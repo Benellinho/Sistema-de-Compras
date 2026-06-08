@@ -441,6 +441,7 @@ async function findSolicitacaoItemForCompra(compraId, solicitacaoItemId) {
       INNER JOIN compras c ON c.solicitacao_id = si.solicitacao_id
       WHERE c.id = ?
         AND si.id = ?
+        AND si.item_id IS NOT NULL
     `,
     [compraId, solicitacaoItemId]
   );

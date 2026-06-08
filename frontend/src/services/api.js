@@ -63,6 +63,10 @@ export const comprasApi = {
   criarSolicitacao: (data) => jsonRequest(API_ROUTES.solicitacoes, 'POST', data),
   adicionarItemSolicitacao: (solicitacaoId, data) =>
     jsonRequest(`${API_ROUTES.solicitacoes}/${solicitacaoId}/itens`, 'POST', data),
+  removerItemSolicitacao: (solicitacaoId, itemSolicitacaoId) =>
+    request(`${API_ROUTES.solicitacoes}/${solicitacaoId}/itens/${itemSolicitacaoId}`, {
+      method: 'DELETE',
+    }),
   decidirSolicitacao: (solicitacaoId, data) =>
     jsonRequest(`${API_ROUTES.solicitacoes}/${solicitacaoId}/aprovacao`, 'POST', data),
   buscarCotacao: (id) => request(`${API_ROUTES.cotacoes}/${id}`),

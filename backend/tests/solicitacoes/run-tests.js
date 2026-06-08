@@ -1,6 +1,7 @@
 import { getDatabase } from '../../src/db/connection.js';
 import testAprovarSolicitacao from './aprovacoes/aprovar-solicitacao.test.js';
 import testBloquearAprovadorInativo from './aprovacoes/bloquear-aprovador-inativo.test.js';
+import testBloquearAprovacaoApenasNecessidadeLivre from './aprovacoes/bloquear-aprovacao-apenas-necessidade-livre.test.js';
 import testBloquearAprovacaoSemItens from './aprovacoes/bloquear-aprovacao-sem-itens.test.js';
 import testBloquearReprovacaoSemObservacao from './aprovacoes/bloquear-reprovacao-sem-observacao.test.js';
 import testBloquearSegundaDecisao from './aprovacoes/bloquear-segunda-decisao.test.js';
@@ -53,6 +54,7 @@ const tests = [
       ['reprovar solicitacao', testReprovarSolicitacao],
       ['bloquear aprovador inativo', testBloquearAprovadorInativo],
       ['bloquear aprovacao sem itens', testBloquearAprovacaoSemItens],
+      ['bloquear aprovacao apenas necessidade livre', testBloquearAprovacaoApenasNecessidadeLivre],
       ['bloquear reprovacao sem observacao', testBloquearReprovacaoSemObservacao],
       ['bloquear segunda decisao', testBloquearSegundaDecisao]
     ]
