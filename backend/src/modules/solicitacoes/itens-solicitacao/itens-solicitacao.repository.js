@@ -21,7 +21,7 @@ async function findById(id) {
     `
       SELECT ${itemSolicitacaoFields}
       FROM solicitacao_compra_itens si
-      INNER JOIN ITENS_COMPRA i ON i.id = si.item_id
+      LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
       WHERE si.id = ?
     `,
     id

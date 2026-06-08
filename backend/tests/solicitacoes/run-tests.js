@@ -5,6 +5,7 @@ import testBloquearAprovacaoSemItens from './aprovacoes/bloquear-aprovacao-sem-i
 import testBloquearReprovacaoSemObservacao from './aprovacoes/bloquear-reprovacao-sem-observacao.test.js';
 import testBloquearSegundaDecisao from './aprovacoes/bloquear-segunda-decisao.test.js';
 import testReprovarSolicitacao from './aprovacoes/reprovar-solicitacao.test.js';
+import testAdicionarNecessidadeLivre from './itens/adicionar-necessidade-livre.test.js';
 import testAdicionarItemSolicitacao from './itens/adicionar-item-solicitacao.test.js';
 import testBloquearAdicaoItemSolicitacaoEncerrada from './itens/bloquear-adicao-item-solicitacao-encerrada.test.js';
 import testBloquearRemocaoItemSolicitacaoEncerrada from './itens/bloquear-remocao-item-solicitacao-encerrada.test.js';
@@ -36,6 +37,7 @@ const tests = [
     group: 'ITENS DA SOLICITACAO',
     items: [
       ['adicionar item solicitacao', testAdicionarItemSolicitacao],
+      ['adicionar necessidade livre', testAdicionarNecessidadeLivre],
       ['remover item solicitacao', testRemoverItemSolicitacao],
       ['validar item inexistente', testValidarItemInexistente],
       ['validar quantidade invalida', testValidarQuantidadeInvalida],

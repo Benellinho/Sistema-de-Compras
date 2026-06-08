@@ -123,7 +123,7 @@ function solicitacaoPrincipalItem(solicitacao) {
     firstItem?.descricao_necessidade ||
     firstItem?.item_descricao ||
     firstItem?.descricao ||
-    'Sem item'
+    'Sem necessidade'
   )
 }
 
@@ -255,12 +255,7 @@ function App() {
   })
   const [draft, setDraft] = useState({
     solicitanteId: '',
-    itemId: '',
-    quantidade: 10,
-    centroCusto: 'Manutencao',
-    prioridade: 'Normal',
     descricaoNecessidade: '',
-    observacoes: '',
   })
   const [envioCotacao, setEnvioCotacao] = useState({
     solicitacaoId: '',
@@ -470,7 +465,6 @@ function App() {
         numero: solicitacaoNumero(solicitacao),
         solicitante: solicitacao.solicitante_nome || solicitacao.solicitante_email || '-',
         item: solicitacaoPrincipalItem(solicitacao),
-        quantidade: solicitacaoQuantidade(solicitacao),
         status: solicitacao.status,
         data: formatDate(solicitacao.created_at),
       })),
@@ -544,14 +538,12 @@ function App() {
     usuariosData,
     fornecedoresData,
     gruposData,
-    itensData,
     solicitacoesData,
     cotacoesData,
   }) {
     const nextUsuariosAtivos = usuariosData.filter(isActiveUsuario)
     const nextFornecedoresAtivos = fornecedoresData.filter(isActiveFornecedor)
     const nextGruposAtivos = gruposData.filter(isActiveItem)
-    const nextItensAtivos = itensData.filter(isActiveItem)
     const nextDefaultUsuarioId = nextUsuariosAtivos[0]?.id ? String(nextUsuariosAtivos[0].id) : ''
     const nextSolicitacoesCotaveis = solicitacoesData.filter((solicitacao) =>
       ['ABERTA', 'APROVADA', 'COTACAO_REPROVADA'].includes(solicitacao.status),
@@ -570,19 +562,10 @@ function App() {
       const userIsValid = nextUsuariosAtivos.some(
         (usuario) => Number(usuario.id) === Number(current.solicitanteId),
       )
-      const itemIsValid = nextItensAtivos.some((item) => Number(item.id) === Number(current.itemId))
-      const nextItem = itemIsValid ? current.itemId : nextItensAtivos[0]?.id || ''
-      const selectedItem = nextItensAtivos.find((item) => Number(item.id) === Number(nextItem))
 
       return {
         ...current,
         solicitanteId: userIsValid ? current.solicitanteId : nextDefaultUsuarioId,
-        itemId: nextItem ? String(nextItem) : '',
-        descricaoNecessidade:
-          current.descricaoNecessidade ||
-          selectedItem?.descricao ||
-          selectedItem?.codigo ||
-          '',
       }
     })
 
@@ -800,25 +783,31 @@ function App() {
     setActionFeedback('')
 
     try {
-      const observacoes = [
-        draft.observacoes,
-        `Centro de custo: ${draft.centroCusto}`,
-        `Prioridade: ${draft.prioridade}`,
-      ]
-        .filter(Boolean)
-        .join(' | ')
+      const descricaoNecessidade = draft.descricaoNecessidade.trim()
+
+      if (!draft.solicitanteId) {
+        throw new Error('Nenhum solicitante ativo encontrado.')
+      }
+
+      if (!descricaoNecessidade) {
+        throw new Error('Informe a necessidade da solicitacao.')
+      }
+
       const solicitacao = await comprasApi.criarSolicitacao({
         solicitante_id: Number(draft.solicitanteId),
-        observacoes,
+        observacoes: null,
       })
 
       await comprasApi.adicionarItemSolicitacao(solicitacao.id, {
-        item_id: Number(draft.itemId),
-        quantidade: Number(draft.quantidade),
-        descricao_necessidade: draft.descricaoNecessidade,
-        observacoes: draft.observacoes || null,
+        quantidade: 1,
+        descricao_necessidade: descricaoNecessidade,
+        observacoes: null,
       })
 
+      setDraft((current) => ({
+        ...current,
+        descricaoNecessidade: '',
+      }))
       await loadBackendData({
         silent: true,
         successMessage: `${solicitacaoNumero(solicitacao)} criada no backend.`,
@@ -1323,98 +1312,15 @@ function App() {
               <section className="section-block">
                 <div className="section-heading">
                   <h2>Nova solicitacao</h2>
-                  <span>POST /solicitacoes</span>
+                  <span>Texto livre da necessidade</span>
                 </div>
                 <form className="compact-form" onSubmit={handleCreateSolicitacao}>
-                  <label>
-                    Solicitante
-                    <select
-                      value={draft.solicitanteId}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          solicitanteId: event.target.value,
-                        }))
-                      }
-                    >
-                      {usuariosAtivos.map((usuario) => (
-                        <option key={usuario.id} value={usuario.id}>
-                          {usuarioNome(usuario)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Item
-                    <select
-                      value={draft.itemId}
-                      onChange={(event) => {
-                        const selectedItem = itensAtivos.find(
-                          (item) => Number(item.id) === Number(event.target.value),
-                        )
-
-                        setDraft((current) => ({
-                          ...current,
-                          itemId: event.target.value,
-                          descricaoNecessidade: selectedItem?.descricao || '',
-                        }))
-                      }}
-                    >
-                      {itensAtivos.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.codigo ? `${item.codigo} - ${item.descricao}` : item.descricao}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="form-grid">
-                    <label>
-                      Quantidade
-                      <input
-                        type="number"
-                        min="1"
-                        value={draft.quantidade}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            quantidade: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      Prioridade
-                      <select
-                        value={draft.prioridade}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            prioridade: event.target.value,
-                          }))
-                        }
-                      >
-                        <option>Normal</option>
-                        <option>Alta</option>
-                        <option>Urgente</option>
-                      </select>
-                    </label>
-                  </div>
-                  <label>
-                    Centro de custo
-                    <input
-                      value={draft.centroCusto}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          centroCusto: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
                   <label>
                     Necessidade
                     <textarea
                       value={draft.descricaoNecessidade}
+                      rows={6}
+                      placeholder="Descreva o que precisa comprar"
                       onChange={(event) =>
                         setDraft((current) => ({
                           ...current,
@@ -1423,22 +1329,10 @@ function App() {
                       }
                     />
                   </label>
-                  <label>
-                    Observacoes
-                    <textarea
-                      value={draft.observacoes}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          observacoes: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
                   <button
                     type="submit"
                     className="primary"
-                    disabled={!draft.solicitanteId || !draft.itemId}
+                    disabled={!draft.solicitanteId || !draft.descricaoNecessidade.trim()}
                   >
                     Criar solicitacao
                   </button>
@@ -1468,8 +1362,7 @@ function App() {
               columns={[
                 ['numero', 'Numero'],
                 ['solicitante', 'Solicitante'],
-                ['item', 'Item'],
-                ['quantidade', 'Qtd.'],
+                ['item', 'Necessidade'],
                 ['status', 'Status', StatusBadge],
                 ['data', 'Data'],
               ]}
@@ -1513,7 +1406,7 @@ function App() {
                       rows={[
                         ['Numero', solicitacaoNumero(selectedEnvioSolicitacao)],
                         ['Status', statusText(selectedEnvioSolicitacao.status)],
-                        ['Item', solicitacaoPrincipalItem(selectedEnvioSolicitacao)],
+                        ['Necessidade', solicitacaoPrincipalItem(selectedEnvioSolicitacao)],
                         ['Quantidade', solicitacaoQuantidade(selectedEnvioSolicitacao)],
                       ]}
                     />
@@ -1651,7 +1544,7 @@ function App() {
                     <SummaryCard
                       rows={[
                         ['Solicitacao', solicitacaoNumero(selectedRetornoSolicitacao)],
-                        ['Item', solicitacaoPrincipalItem(selectedRetornoSolicitacao)],
+                        ['Necessidade', solicitacaoPrincipalItem(selectedRetornoSolicitacao)],
                         ['Quantidade', solicitacaoQuantidade(selectedRetornoSolicitacao)],
                         ['Status cotacao', statusText(selectedRetornoCotacao?.status)],
                       ]}
@@ -1891,7 +1784,7 @@ function App() {
                       </div>
                       <SummaryCard
                         rows={[
-                          ['Item', solicitacaoPrincipalItem(selectedAprovacaoSolicitacao)],
+                          ['Necessidade', solicitacaoPrincipalItem(selectedAprovacaoSolicitacao)],
                           ['Quantidade', solicitacaoQuantidade(selectedAprovacaoSolicitacao)],
                           ['Cotacao', cotacaoNumero(selectedAprovacaoCotacao)],
                           ['Rodada', selectedAprovacaoCotacao?.numero_rodada || 1],

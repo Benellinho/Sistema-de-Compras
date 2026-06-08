@@ -54,7 +54,7 @@ async function findItensBySolicitacaoId(id) {
         si.observacoes,
         si.created_at
       FROM solicitacao_compra_itens si
-      INNER JOIN ITENS_COMPRA i ON i.id = si.item_id
+      LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
       WHERE si.solicitacao_id = ?
       ORDER BY si.id ASC
     `,

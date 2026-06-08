@@ -473,7 +473,7 @@ async function findItensByCotacaoFornecedorId(cotacaoFornecedorId) {
         cfi.observacoes
       FROM cotacao_fornecedor_itens cfi
       INNER JOIN solicitacao_compra_itens si ON si.id = cfi.solicitacao_item_id
-      INNER JOIN ITENS_COMPRA i ON i.id = si.item_id
+      LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
       WHERE cfi.cotacao_fornecedor_id = ?
       ORDER BY cfi.id ASC
     `,
@@ -626,7 +626,7 @@ async function getComparativo(cotacaoId) {
         i.descricao AS item_descricao
       FROM cotacoes c
       INNER JOIN solicitacao_compra_itens si ON si.solicitacao_id = c.solicitacao_id
-      INNER JOIN ITENS_COMPRA i ON i.id = si.item_id
+      LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
       WHERE c.id = ?
       ORDER BY si.id ASC
     `,

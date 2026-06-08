@@ -36,7 +36,7 @@ async function validateSolicitacaoAberta(solicitacaoId) {
 
 async function validateItemExiste(itemId) {
   if (!required(itemId)) {
-    throw createValidationError('Item e obrigatorio.');
+    return null;
   }
 
   const item = await itensRepository.findById(itemId);
@@ -53,9 +53,19 @@ function validateQuantidade(quantidade) {
     throw createValidationError('Quantidade e obrigatoria.');
   }
 
-  if (Number(quantidade) <= 0) {
+  const numeric = Number(quantidade);
+
+  if (!Number.isFinite(numeric) || numeric <= 0) {
     throw createValidationError('Quantidade deve ser maior que zero.');
   }
+}
+
+function normalizeQuantidade(quantidade) {
+  const normalized = required(quantidade) ? quantidade : 1;
+
+  validateQuantidade(normalized);
+
+  return Number(normalized);
 }
 
 function validateDescricaoNecessidade(descricao) {
@@ -67,15 +77,15 @@ function validateDescricaoNecessidade(descricao) {
 async function create(solicitacaoId, data) {
   await validateSolicitacaoAberta(solicitacaoId);
   const item = await validateItemExiste(data?.item_id);
-  validateQuantidade(data?.quantidade);
+  const quantidade = normalizeQuantidade(data?.quantidade);
   validateDescricaoNecessidade(data?.descricao_necessidade);
 
   return itensSolicitacaoRepository.create({
     solicitacao_id: solicitacaoId,
-    item_id: data.item_id,
-    descricao_necessidade: data.descricao_necessidade,
-    quantidade: data.quantidade,
-    unidade_snapshot: item.unidade,
+    item_id: item ? data.item_id : null,
+    descricao_necessidade: String(data.descricao_necessidade).trim(),
+    quantidade,
+    unidade_snapshot: item?.unidade || 'UN',
     observacoes: data?.observacoes ?? null
   });
 }

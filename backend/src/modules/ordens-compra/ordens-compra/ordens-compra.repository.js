@@ -415,7 +415,7 @@ async function hydrateOrdem(database, ordem) {
         cfi.valor_total
       FROM compra_fornecedor_itens cfi
       INNER JOIN solicitacao_compra_itens si ON si.id = cfi.solicitacao_item_id
-      INNER JOIN ITENS_COMPRA i ON i.id = si.item_id
+      LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
       WHERE cfi.compra_fornecedor_id = ?
       ORDER BY cfi.id ASC
     `,

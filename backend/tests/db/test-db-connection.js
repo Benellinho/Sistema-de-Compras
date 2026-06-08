@@ -5,27 +5,28 @@ async function main() {
 
   const database = await getDatabase();
   const version = await database.get('SELECT version() AS version');
+  const currentSchema = await database.get('SELECT current_schema() AS name');
   const fornecedorColumns = await database.all(`
     SELECT column_name AS name
     FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'fornecedores'
+    WHERE table_schema = ?
+      AND LOWER(table_name) = 'fornecedores'
     ORDER BY ordinal_position
-  `);
+  `, currentSchema.name);
   const fornecedorContatoColumns = await database.all(`
     SELECT column_name AS name
     FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'fornecedor_contatos'
+    WHERE table_schema = ?
+      AND LOWER(table_name) = 'fornecedor_contatos'
     ORDER BY ordinal_position
-  `);
+  `, currentSchema.name);
   const tables = await database.all(`
     SELECT table_name AS name
     FROM information_schema.tables
-    WHERE table_schema = 'public'
+    WHERE table_schema = ?
       AND table_type = 'BASE TABLE'
     ORDER BY table_name
-  `);
+  `, currentSchema.name);
   const expectedFornecedorColumns = ['id', 'cnpj', 'status', 'razao_social', 'nome_fantasia', 'telefone', 'email'];
   const expectedFornecedorContatoColumns = ['id', 'fornecedor_id', 'nome', 'cargo', 'telefone', 'email'];
   const fornecedorColumnNames = fornecedorColumns.map((column) => column.name);
@@ -47,6 +48,7 @@ async function main() {
 
   console.log('Conexao com PostgreSQL OK');
   console.log(`Versao PostgreSQL: ${version.version}`);
+  console.log(`Schema ativo: ${currentSchema.name}`);
   console.log(`Tabelas encontradas: ${tables.map((table) => table.name).join(', ')}`);
   console.log(`Colunas FORNECEDORES: ${fornecedorColumnNames.join(', ')}`);
   console.log(`Colunas FORNECEDOR_CONTATOS: ${fornecedorContatoColumnNames.join(', ')}`);

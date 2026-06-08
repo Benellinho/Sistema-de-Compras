@@ -581,7 +581,7 @@ async function findItensByCompraFornecedorId(compraFornecedorId) {
       FROM compra_fornecedor_itens cfi
       INNER JOIN compra_fornecedores cf ON cf.id = cfi.compra_fornecedor_id
       INNER JOIN solicitacao_compra_itens si ON si.id = cfi.solicitacao_item_id
-      INNER JOIN ITENS_COMPRA i ON i.id = si.item_id
+      LEFT JOIN ITENS_COMPRA i ON i.id = si.item_id
       INNER JOIN (
         SELECT
           cfi2.solicitacao_item_id,

@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS solicitacoes_compra (
 CREATE TABLE IF NOT EXISTS solicitacao_compra_itens (
   id SERIAL PRIMARY KEY,
   solicitacao_id INTEGER NOT NULL,
-  item_id INTEGER NOT NULL,
+  item_id INTEGER,
   descricao_necessidade TEXT NOT NULL,
   quantidade DOUBLE PRECISION NOT NULL CHECK (quantidade > 0),
   unidade_snapshot TEXT NOT NULL,
@@ -90,6 +90,9 @@ CREATE TABLE IF NOT EXISTS solicitacao_compra_itens (
   FOREIGN KEY (solicitacao_id) REFERENCES solicitacoes_compra (id) ON DELETE CASCADE,
   FOREIGN KEY (item_id) REFERENCES itens_compra (id)
 );
+
+ALTER TABLE solicitacao_compra_itens
+  ALTER COLUMN item_id DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS solicitacao_compra_aprovacoes (
   id SERIAL PRIMARY KEY,
@@ -169,8 +172,15 @@ CREATE TABLE IF NOT EXISTS cotacao_fornecedor_itens (
   ),
   UNIQUE (cotacao_fornecedor_id, solicitacao_item_id),
   FOREIGN KEY (cotacao_fornecedor_id) REFERENCES cotacao_fornecedores (id) ON DELETE CASCADE,
-  FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id)
+  FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id) ON DELETE CASCADE
 );
+
+ALTER TABLE cotacao_fornecedor_itens
+  DROP CONSTRAINT IF EXISTS cotacao_fornecedor_itens_solicitacao_item_id_fkey;
+
+ALTER TABLE cotacao_fornecedor_itens
+  ADD CONSTRAINT cotacao_fornecedor_itens_solicitacao_item_id_fkey
+  FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id) ON DELETE CASCADE;
 
 CREATE TABLE IF NOT EXISTS cotacao_fornecedor_anexos (
   id SERIAL PRIMARY KEY,
@@ -229,8 +239,15 @@ CREATE TABLE IF NOT EXISTS compra_fornecedor_itens (
   CONSTRAINT chk_compra_item_recebido_limite CHECK (quantidade_recebida <= quantidade_pedida),
   UNIQUE (compra_fornecedor_id, solicitacao_item_id),
   FOREIGN KEY (compra_fornecedor_id) REFERENCES compra_fornecedores (id) ON DELETE CASCADE,
-  FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id)
+  FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id) ON DELETE CASCADE
 );
+
+ALTER TABLE compra_fornecedor_itens
+  DROP CONSTRAINT IF EXISTS compra_fornecedor_itens_solicitacao_item_id_fkey;
+
+ALTER TABLE compra_fornecedor_itens
+  ADD CONSTRAINT compra_fornecedor_itens_solicitacao_item_id_fkey
+  FOREIGN KEY (solicitacao_item_id) REFERENCES solicitacao_compra_itens (id) ON DELETE CASCADE;
 
 CREATE TABLE IF NOT EXISTS compra_fornecedor_justificativas (
   id SERIAL PRIMARY KEY,
