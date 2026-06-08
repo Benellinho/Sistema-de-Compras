@@ -102,7 +102,7 @@ function resourceCode(prefix, id) {
 }
 
 function solicitacaoNumero(solicitacao) {
-  return resourceCode('SC', solicitacao?.id)
+  return solicitacao?.id ? String(Number(solicitacao.id)) : '-'
 }
 
 function cotacaoNumero(cotacao) {
@@ -810,7 +810,7 @@ function App() {
       }))
       await loadBackendData({
         silent: true,
-        successMessage: `${solicitacaoNumero(solicitacao)} criada no backend.`,
+        successMessage: `Solicitação N° ${solicitacaoNumero(solicitacao)} registrada`,
       })
       setActiveTab('solicitacoes')
     } catch (error) {
