@@ -93,10 +93,12 @@ const DEFAULT_URGENCIA = 'Baixa'
 const DEFAULT_ENVIO_OBSERVACOES =
   'Solicitar orcamento formal com prazo de entrega e condicao de pagamento.'
 const DEFAULT_RETORNO_PRAZO = '5 dias'
-const DEFAULT_RETORNO_PAGAMENTO = '30 dias'
+const DEFAULT_RETORNO_TIPO_PAGAMENTO = 'BOLETO'
+const DEFAULT_RETORNO_PARCELAS = '1'
 const DEFAULT_RETORNO_OBSERVACOES = 'Condicoes recebidas por email e lancadas manualmente.'
 const DEFAULT_APROVACAO_OBSERVACAO =
   'Melhor valor com fornecedor homologado e prazo compativel.'
+const RETORNO_PARCELAS_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index + 1))
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', {
@@ -377,6 +379,14 @@ function retornoStatusFromFornecedor(fornecedor) {
   return retornoFornecedorStatuses.has(fornecedor?.status) ? fornecedor.status : 'RESPONDIDO'
 }
 
+function retornoFormaPagamentoText(retornoCotacao) {
+  if (retornoCotacao.tipoPagamento === 'A_VISTA') {
+    return 'À vista'
+  }
+
+  return `Boleto - ${retornoCotacao.parcelasPagamento || DEFAULT_RETORNO_PARCELAS}x`
+}
+
 function withRetornoStatus(form, status) {
   const nextForm = {
     ...form,
@@ -384,13 +394,19 @@ function withRetornoStatus(form, status) {
   }
 
   if (status === 'RESPONDIDO') {
-    return nextForm
+    return {
+      ...nextForm,
+      prazoEntrega: nextForm.prazoEntrega || DEFAULT_RETORNO_PRAZO,
+      tipoPagamento: nextForm.tipoPagamento || DEFAULT_RETORNO_TIPO_PAGAMENTO,
+      parcelasPagamento: nextForm.parcelasPagamento || DEFAULT_RETORNO_PARCELAS,
+    }
   }
 
   return {
     ...nextForm,
     prazoEntrega: '',
-    formaPagamento: '',
+    tipoPagamento: '',
+    parcelasPagamento: '',
     anexo: '',
     itens: (nextForm.itens || []).map((item) => ({
       ...item,
@@ -444,7 +460,8 @@ function App() {
     cotacaoFornecedorId: '',
     status: 'RESPONDIDO',
     prazoEntrega: DEFAULT_RETORNO_PRAZO,
-    formaPagamento: DEFAULT_RETORNO_PAGAMENTO,
+    tipoPagamento: DEFAULT_RETORNO_TIPO_PAGAMENTO,
+    parcelasPagamento: DEFAULT_RETORNO_PARCELAS,
     observacoes: DEFAULT_RETORNO_OBSERVACOES,
     anexo: '',
     itens: [],
@@ -799,7 +816,8 @@ function App() {
           cotacaoFornecedorId: fornecedor?.id ? String(fornecedor.id) : '',
           status: 'RESPONDIDO',
           prazoEntrega: DEFAULT_RETORNO_PRAZO,
-          formaPagamento: DEFAULT_RETORNO_PAGAMENTO,
+          tipoPagamento: DEFAULT_RETORNO_TIPO_PAGAMENTO,
+          parcelasPagamento: DEFAULT_RETORNO_PARCELAS,
           observacoes: DEFAULT_RETORNO_OBSERVACOES,
           anexo: '',
           itens: cotacao ? buildRetornoItens(cotacao, solicitacoes) : [],
@@ -1379,7 +1397,7 @@ function App() {
             selectedRetornoFornecedor.id,
             {
               prazo_entrega: retornoCotacao.prazoEntrega,
-              forma_pagamento: retornoCotacao.formaPagamento,
+              forma_pagamento: retornoFormaPagamentoText(retornoCotacao),
               observacoes: retornoCotacao.observacoes,
               usuario_id: Number(defaultUsuarioId || envioCotacao.usuarioId),
               itens: retornoCotacao.itens.map((item) => ({
@@ -2104,7 +2122,7 @@ function App() {
                       }
                       onClick={goToEnvioCotacao}
                     >
-                      Avancar para pedir cotacao
+                      Avançar para pedir cotacao
                     </button>
                   </div>
                 </section>
@@ -2401,18 +2419,46 @@ function App() {
                     </label>
                     <label>
                       Forma de pagamento
-                      <input
-                        value={retornoCotacao.formaPagamento}
+                      <select
+                        value={retornoCotacao.tipoPagamento}
                         disabled={retornoCotacao.status !== 'RESPONDIDO'}
                         onChange={(event) =>
                           setRetornoCotacao((current) => ({
                             ...current,
-                            formaPagamento: event.target.value,
+                            tipoPagamento: event.target.value,
+                            parcelasPagamento:
+                              event.target.value === 'BOLETO'
+                                ? current.parcelasPagamento || DEFAULT_RETORNO_PARCELAS
+                                : DEFAULT_RETORNO_PARCELAS,
                           }))
                         }
-                      />
+                      >
+                        <option value="BOLETO">Boleto</option>
+                        <option value="A_VISTA">À vista</option>
+                      </select>
                     </label>
                   </div>
+                  {retornoCotacao.tipoPagamento === 'BOLETO' && (
+                    <label className="full-width-label">
+                      Parcelas do boleto
+                      <select
+                        value={retornoCotacao.parcelasPagamento}
+                        disabled={retornoCotacao.status !== 'RESPONDIDO'}
+                        onChange={(event) =>
+                          setRetornoCotacao((current) => ({
+                            ...current,
+                            parcelasPagamento: event.target.value,
+                          }))
+                        }
+                      >
+                        {RETORNO_PARCELAS_OPTIONS.map((parcela) => (
+                          <option key={parcela} value={parcela}>
+                            {parcela}x
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <label>
                     Observacoes
                     <textarea
