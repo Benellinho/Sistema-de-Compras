@@ -54,7 +54,8 @@
 
 .brand-block span,
 .api-panel span,
-.section-heading span,
+.section-heading > span,
+.section-heading > div > span,
 .metric-card small,
 .request-item small {
   color: var(--text-soft);
@@ -86,6 +87,30 @@ button {
 button:hover {
   border-color: var(--border-strong);
   background: var(--surface-muted);
+}
+
+.button-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.button-spinner,
+.message-spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: spin 0.75s linear infinite;
+}
+
+.message-spinner {
+  width: 16px;
+  height: 16px;
+  color: #2563eb;
 }
 
 .nav-tabs button {
@@ -417,6 +442,18 @@ textarea {
   padding: 8px 10px;
 }
 
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 textarea {
   min-height: 104px;
   resize: vertical;
@@ -583,6 +620,11 @@ button:disabled {
   margin-top: 16px;
 }
 
+.form-actions-centered {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .empty-state {
   margin-top: 16px;
   padding: 18px;
@@ -694,6 +736,25 @@ button:disabled {
   border-radius: 8px;
   color: #166534;
   background: #dcfce7;
+}
+
+.pending-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-weight: 700;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .response-card {

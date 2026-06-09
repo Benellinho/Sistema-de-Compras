@@ -72,6 +72,31 @@ const statusClass = {
 }
 
 const finalCotacaoStatuses = new Set(['APROVADA', 'REPROVADA', 'CANCELADA', 'ENCERRADA'])
+const retornoFornecedorStatuses = new Set(['RESPONDIDO', 'RECUSADO', 'SEM_RESPOSTA'])
+
+const ACTIONS = {
+  criarSolicitacao: 'Criando solicitacao',
+  lancarItem: 'Lancando item',
+  removerItem: 'Removendo item',
+  limparSolicitacoes: 'Limpando solicitacoes',
+  enviarCotacao: 'Criando e enviando solicitação de orçamento',
+  registrarRetorno: 'Registrando retorno',
+  confirmarDecisao: 'Confirmando decisao',
+  gerarOrdemCompra: 'Gerando ordem de compra',
+  cadastrarFornecedor: 'Cadastrando fornecedor',
+  cadastrarContato: 'Cadastrando contato',
+  cadastrarGrupo: 'Cadastrando grupo',
+  cadastrarItem: 'Cadastrando item',
+}
+
+const DEFAULT_URGENCIA = 'Baixa'
+const DEFAULT_ENVIO_OBSERVACOES =
+  'Solicitar orcamento formal com prazo de entrega e condicao de pagamento.'
+const DEFAULT_RETORNO_PRAZO = '5 dias'
+const DEFAULT_RETORNO_PAGAMENTO = '30 dias'
+const DEFAULT_RETORNO_OBSERVACOES = 'Condicoes recebidas por email e lancadas manualmente.'
+const DEFAULT_APROVACAO_OBSERVACAO =
+  'Melhor valor com fornecedor homologado e prazo compativel.'
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', {
@@ -199,7 +224,7 @@ function solicitacaoClassificacaoOption(solicitacao) {
 function solicitacaoCotacaoOption(solicitacao) {
   return compactOptionText([
     solicitacaoNumero(solicitacao),
-    solicitacaoResumoItens(solicitacao),
+    solicitacaoSolicitante(solicitacao),
     solicitacaoUrgencia(solicitacao),
     solicitacaoCentroCusto(solicitacao),
   ])
@@ -348,6 +373,34 @@ function buildRetornoItens(cotacao, solicitacoes) {
   }))
 }
 
+function retornoStatusFromFornecedor(fornecedor) {
+  return retornoFornecedorStatuses.has(fornecedor?.status) ? fornecedor.status : 'RESPONDIDO'
+}
+
+function withRetornoStatus(form, status) {
+  const nextForm = {
+    ...form,
+    status,
+  }
+
+  if (status === 'RESPONDIDO') {
+    return nextForm
+  }
+
+  return {
+    ...nextForm,
+    prazoEntrega: '',
+    formaPagamento: '',
+    anexo: '',
+    itens: (nextForm.itens || []).map((item) => ({
+      ...item,
+      statusItem: 'DISPONIVEL',
+      valorUnitario: '',
+      observacoes: '',
+    })),
+  }
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState('inicio')
   const [usuarios, setUsuarios] = useState([])
@@ -371,28 +424,28 @@ function App() {
   const [draft, setDraft] = useState({
     solicitanteId: '',
     descricaoNecessidade: '',
-    urgencia: 'Normal',
+    urgencia: DEFAULT_URGENCIA,
     centroCusto: '',
   })
   const [classificacaoForm, setClassificacaoForm] = useState({
     solicitacaoId: '',
     itemId: '',
-    quantidade: 1,
+    quantidade: '',
     observacoes: '',
   })
   const [envioCotacao, setEnvioCotacao] = useState({
     solicitacaoId: '',
     fornecedorIds: [],
     usuarioId: '',
-    observacoes: 'Solicitar orcamento formal com prazo de entrega e condicao de pagamento.',
+    observacoes: DEFAULT_ENVIO_OBSERVACOES,
   })
   const [retornoCotacao, setRetornoCotacao] = useState({
     cotacaoId: '',
     cotacaoFornecedorId: '',
     status: 'RESPONDIDO',
-    prazoEntrega: '5 dias',
-    formaPagamento: '30 dias',
-    observacoes: 'Condicoes recebidas por email e lancadas manualmente.',
+    prazoEntrega: DEFAULT_RETORNO_PRAZO,
+    formaPagamento: DEFAULT_RETORNO_PAGAMENTO,
+    observacoes: DEFAULT_RETORNO_OBSERVACOES,
     anexo: '',
     itens: [],
   })
@@ -401,7 +454,7 @@ function App() {
     fornecedorId: '',
     usuarioId: '',
     decisao: 'APROVAR',
-    observacao: 'Melhor valor com fornecedor homologado e prazo compativel.',
+    observacao: DEFAULT_APROVACAO_OBSERVACAO,
   })
   const [fornecedorForm, setFornecedorForm] = useState({
     cnpj: '',
@@ -706,6 +759,140 @@ function App() {
     }
   }
 
+  function resetSolicitacaoForm() {
+    setDraft({
+      solicitanteId: defaultUsuarioId,
+      descricaoNecessidade: '',
+      urgencia: DEFAULT_URGENCIA,
+      centroCusto: '',
+    })
+  }
+
+  function resetClassificacaoForm() {
+    setClassificacaoForm({
+      solicitacaoId: solicitacoesClassificaveis[0]?.id
+        ? String(solicitacoesClassificaveis[0].id)
+        : '',
+      itemId: '',
+      quantidade: '',
+      observacoes: '',
+    })
+  }
+
+  function resetEnvioCotacaoForm() {
+    setEnvioCotacao({
+      solicitacaoId: solicitacoesCotaveis[0]?.id ? String(solicitacoesCotaveis[0].id) : '',
+      fornecedorIds: fornecedoresAtivos.slice(0, 3).map((fornecedor) => String(fornecedor.id)),
+      usuarioId: defaultUsuarioId,
+      observacoes: DEFAULT_ENVIO_OBSERVACOES,
+    })
+  }
+
+  function resetRetornoCotacaoForm() {
+    const cotacao = cotacoesComFornecedores[0]
+    const fornecedor = cotacao?.fornecedores?.[0]
+
+    setRetornoCotacao(
+      withRetornoStatus(
+        {
+          cotacaoId: cotacao?.id ? String(cotacao.id) : '',
+          cotacaoFornecedorId: fornecedor?.id ? String(fornecedor.id) : '',
+          status: 'RESPONDIDO',
+          prazoEntrega: DEFAULT_RETORNO_PRAZO,
+          formaPagamento: DEFAULT_RETORNO_PAGAMENTO,
+          observacoes: DEFAULT_RETORNO_OBSERVACOES,
+          anexo: '',
+          itens: cotacao ? buildRetornoItens(cotacao, solicitacoes) : [],
+        },
+        retornoStatusFromFornecedor(fornecedor),
+      ),
+    )
+  }
+
+  function resetAprovacaoCotacaoForm() {
+    const cotacao = cotacoesParaAprovacao[0]
+    const fornecedor = (cotacao?.fornecedores || []).find(
+      (item) => item.status === 'RESPONDIDO',
+    )
+
+    setAprovacaoCotacao({
+      cotacaoId: cotacao?.id ? String(cotacao.id) : '',
+      fornecedorId: fornecedor?.fornecedor_id ? String(fornecedor.fornecedor_id) : '',
+      usuarioId: defaultUsuarioId,
+      decisao: 'APROVAR',
+      observacao: DEFAULT_APROVACAO_OBSERVACAO,
+    })
+  }
+
+  function resetCadastroBaseForms() {
+    setFornecedorForm({
+      cnpj: '',
+      razaoSocial: '',
+      nomeFantasia: '',
+      telefone: '',
+      email: '',
+    })
+    setContatoForm({
+      fornecedorId: fornecedoresAtivos[0]?.id ? String(fornecedoresAtivos[0].id) : '',
+      nome: '',
+      cargo: '',
+      telefone: '',
+      email: '',
+    })
+    setGrupoForm({ nome: '' })
+    setItemForm({
+      codigo: '',
+      descricao: '',
+      unidade: 'UN',
+      classificacao: 'CUSTO',
+      grupoId: gruposAtivos[0]?.id ? String(gruposAtivos[0].id) : '',
+      controlaEstoque: false,
+    })
+  }
+
+  function resetTabState(tabId) {
+    if (tabId === 'solicitacoes') {
+      resetSolicitacaoForm()
+      return
+    }
+
+    if (tabId === 'classificar-solicitacao') {
+      resetClassificacaoForm()
+      return
+    }
+
+    if (tabId === 'enviar-cotacao') {
+      resetEnvioCotacaoForm()
+      return
+    }
+
+    if (tabId === 'retorno-cotacao') {
+      resetRetornoCotacaoForm()
+      return
+    }
+
+    if (tabId === 'aprovar-cotacao') {
+      resetAprovacaoCotacaoForm()
+      return
+    }
+
+    if (tabId === 'cadastro-base') {
+      resetCadastroBaseForms()
+    }
+  }
+
+  function navigateToTab(tabId, { clearFeedback = true } = {}) {
+    if (tabId !== activeTab) {
+      resetTabState(activeTab)
+
+      if (clearFeedback) {
+        setActionFeedback('')
+      }
+    }
+
+    setActiveTab(tabId)
+  }
+
   function syncFormDefaults({
     usuariosData,
     fornecedoresData,
@@ -760,12 +947,8 @@ function App() {
           : nextSolicitacoesClassificaveis[0]?.id
             ? String(nextSolicitacoesClassificaveis[0].id)
             : '',
-        itemId: itemIsValid
-          ? current.itemId
-          : nextItensAtivos[0]?.id
-            ? String(nextItensAtivos[0].id)
-            : '',
-        quantidade: current.quantidade || 1,
+        itemId: itemIsValid ? current.itemId : '',
+        quantidade: current.quantidade ?? '',
       }
     })
 
@@ -807,12 +990,12 @@ function App() {
           (fornecedor) => Number(fornecedor.id) === Number(current.cotacaoFornecedorId),
         ) || fornecedoresCotacao[0]
 
-      return {
+      return withRetornoStatus({
         ...current,
         cotacaoId: cotacaoAtual?.id ? String(cotacaoAtual.id) : '',
         cotacaoFornecedorId: fornecedorAtual?.id ? String(fornecedorAtual.id) : '',
         itens: cotacaoAtual ? buildRetornoItens(cotacaoAtual, solicitacoesData) : [],
-      }
+      }, retornoStatusFromFornecedor(fornecedorAtual))
     })
 
     setAprovacaoCotacao((current) => {
@@ -989,7 +1172,7 @@ function App() {
   async function handleCreateSolicitacao(event) {
     event.preventDefault()
 
-    return runLocked('Criando solicitacao', async () => {
+    return runLocked(ACTIONS.criarSolicitacao, async () => {
       setActionFeedback('')
 
       try {
@@ -1026,8 +1209,11 @@ function App() {
         setClassificacaoForm((current) => ({
           ...current,
           solicitacaoId: String(solicitacao.id),
+          itemId: '',
+          quantidade: '',
+          observacoes: '',
         }))
-        setActiveTab('classificar-solicitacao')
+        navigateToTab('classificar-solicitacao', { clearFeedback: false })
       } catch (error) {
         setActionFeedback(`Nao foi possivel criar solicitacao: ${error.message}`)
       }
@@ -1037,7 +1223,7 @@ function App() {
   async function handleClassificarSolicitacao(event) {
     event.preventDefault()
 
-    return runLocked('Lancando item', async () => {
+    return runLocked(ACTIONS.lancarItem, async () => {
       setActionFeedback('')
 
       try {
@@ -1056,16 +1242,17 @@ function App() {
           observacoes: classificacaoForm.observacoes || null,
         })
 
-        setClassificacaoForm((current) => ({
-          ...current,
-          quantidade: 1,
-          observacoes: '',
-        }))
         await loadBackendData({
           silent: true,
           successMessage: `Item lancado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
         })
-        setActiveTab('classificar-solicitacao')
+        setClassificacaoForm((current) => ({
+          ...current,
+          itemId: '',
+          quantidade: '',
+          observacoes: '',
+        }))
+        navigateToTab('classificar-solicitacao', { clearFeedback: false })
       } catch (error) {
         setActionFeedback(`Nao foi possivel lancar item: ${error.message}`)
       }
@@ -1073,7 +1260,7 @@ function App() {
   }
 
   async function handleRemoveClassificacaoItem(itemSolicitacaoId) {
-    return runLocked('Removendo item', async () => {
+    return runLocked(ACTIONS.removerItem, async () => {
       setActionFeedback('')
 
       try {
@@ -1086,7 +1273,7 @@ function App() {
           silent: true,
           successMessage: `Item removido da solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
         })
-        setActiveTab('classificar-solicitacao')
+        navigateToTab('classificar-solicitacao', { clearFeedback: false })
       } catch (error) {
         setActionFeedback(`Nao foi possivel remover item: ${error.message}`)
       }
@@ -1102,7 +1289,7 @@ function App() {
       return
     }
 
-    return runLocked('Limpando solicitacoes', async () => {
+    return runLocked(ACTIONS.limparSolicitacoes, async () => {
       setActionFeedback('')
 
       try {
@@ -1111,7 +1298,7 @@ function App() {
           silent: true,
           successMessage: `${result.solicitacoes_removidas || 0} solicitacoes removidas.`,
         })
-        setActiveTab('solicitacoes')
+        navigateToTab('solicitacoes', { clearFeedback: false })
       } catch (error) {
         setActionFeedback(`Nao foi possivel limpar solicitacoes: ${error.message}`)
       }
@@ -1121,7 +1308,7 @@ function App() {
   async function enviarSolicitacaoParaCotacao(event) {
     event.preventDefault()
 
-    return runLocked('Enviando cotacao', async () => {
+    return runLocked(ACTIONS.enviarCotacao, async () => {
       setActionFeedback('')
 
       try {
@@ -1168,7 +1355,7 @@ function App() {
           silent: true,
           successMessage: `Solicitacao N° ${cotacaoNumero(cotacao)} enviada para cotacao.`,
         })
-        setActiveTab('cotacoes')
+        navigateToTab('cotacoes', { clearFeedback: false })
       } catch (error) {
         setActionFeedback(`Nao foi possivel enviar cotacao: ${error.message}`)
       }
@@ -1178,7 +1365,7 @@ function App() {
   async function handleRetornoCotacaoSubmit(event) {
     event.preventDefault()
 
-    return runLocked('Registrando retorno', async () => {
+    return runLocked(ACTIONS.registrarRetorno, async () => {
       setActionFeedback('')
 
       try {
@@ -1222,7 +1409,7 @@ function App() {
           silent: true,
           successMessage: `Retorno de ${fornecedorNome(selectedRetornoFornecedor)} registrado.`,
         })
-        setActiveTab('retorno-cotacao')
+        navigateToTab('retorno-cotacao', { clearFeedback: false })
       } catch (error) {
         setActionFeedback(`Nao foi possivel registrar retorno: ${error.message}`)
       }
@@ -1232,7 +1419,7 @@ function App() {
   async function aprovarCotacao(event) {
     event.preventDefault()
 
-    return runLocked('Confirmando decisao', async () => {
+    return runLocked(ACTIONS.confirmarDecisao, async () => {
       setActionFeedback('')
 
       try {
@@ -1250,7 +1437,7 @@ function App() {
             silent: true,
             successMessage: `Solicitacao N° ${cotacaoNumero(selectedAprovacaoCotacao)} reprovada.`,
           })
-          setActiveTab('cotacoes')
+          navigateToTab('cotacoes', { clearFeedback: false })
           return
         }
 
@@ -1303,7 +1490,7 @@ function App() {
           silent: true,
           successMessage: `Solicitacao N° ${compraNumero(compra)} criada e aprovada no backend.`,
         })
-        setActiveTab('compras')
+        navigateToTab('compras', { clearFeedback: false })
       } catch (error) {
         setActionFeedback(`Nao foi possivel aprovar cotacao: ${error.message}`)
       }
@@ -1311,7 +1498,7 @@ function App() {
   }
 
   async function createOrdemCompra() {
-    return runLocked('Gerando ordem de compra', async () => {
+    return runLocked(ACTIONS.gerarOrdemCompra, async () => {
       setActionFeedback('')
 
       try {
@@ -1338,7 +1525,7 @@ function App() {
   async function handleCreateFornecedor(event) {
     event.preventDefault()
 
-    return runLocked('Cadastrando fornecedor', async () => {
+    return runLocked(ACTIONS.cadastrarFornecedor, async () => {
       setActionFeedback('')
 
       try {
@@ -1375,7 +1562,7 @@ function App() {
   async function handleCreateContato(event) {
     event.preventDefault()
 
-    return runLocked('Cadastrando contato', async () => {
+    return runLocked(ACTIONS.cadastrarContato, async () => {
       setActionFeedback('')
 
       try {
@@ -1410,7 +1597,7 @@ function App() {
   async function handleCreateGrupo(event) {
     event.preventDefault()
 
-    return runLocked('Cadastrando grupo', async () => {
+    return runLocked(ACTIONS.cadastrarGrupo, async () => {
       setActionFeedback('')
 
       try {
@@ -1437,7 +1624,7 @@ function App() {
   async function handleCreateItem(event) {
     event.preventDefault()
 
-    return runLocked('Cadastrando item', async () => {
+    return runLocked(ACTIONS.cadastrarItem, async () => {
       setActionFeedback('')
 
       try {
@@ -1477,12 +1664,12 @@ function App() {
     const cotacao = cotacoes.find((item) => Number(item.id) === Number(cotacaoId))
     const firstFornecedor = cotacao?.fornecedores?.[0]
 
-    setRetornoCotacao((current) => ({
+    setRetornoCotacao((current) => withRetornoStatus({
       ...current,
       cotacaoId,
       cotacaoFornecedorId: firstFornecedor?.id ? String(firstFornecedor.id) : '',
       itens: buildRetornoItens(cotacao, solicitacoes),
-    }))
+    }, retornoStatusFromFornecedor(firstFornecedor)))
   }
 
   function handleAprovacaoCotacaoChange(cotacaoId) {
@@ -1496,6 +1683,18 @@ function App() {
       cotacaoId,
       fornecedorId: firstFornecedor?.fornecedor_id ? String(firstFornecedor.fornecedor_id) : '',
     }))
+  }
+
+  function goToEnvioCotacao() {
+    if (!selectedClassificacaoSolicitacao || itensClassificacao.length < 1) {
+      return
+    }
+
+    setEnvioCotacao((current) => ({
+      ...current,
+      solicitacaoId: String(selectedClassificacaoSolicitacao.id),
+    }))
+    navigateToTab('enviar-cotacao')
   }
 
   return (
@@ -1516,7 +1715,7 @@ function App() {
               type="button"
               className={activeTab === tab.id ? 'active' : ''}
               disabled={actionLocked}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => navigateToTab(tab.id)}
             >
               {tab.label}
             </button>
@@ -1540,13 +1739,15 @@ function App() {
           </div>
           <div className="topbar-actions">
             <button type="button" onClick={handleLoadBackendData} disabled={loadingData || actionLocked}>
-              {loadingData ? 'Carregando...' : 'Atualizar dados'}
+              <ButtonContent active={loadingData}>
+                {loadingData ? 'Carregando...' : 'Atualizar dados'}
+              </ButtonContent>
             </button>
             <button
               type="button"
               className="primary"
               disabled={actionLocked}
-              onClick={() => setActiveTab('solicitacoes')}
+              onClick={() => navigateToTab('solicitacoes')}
             >
               Nova solicitacao
             </button>
@@ -1590,7 +1791,7 @@ function App() {
                   disabled={loadingData || actionLocked}
                   onClick={handleLoadBackendData}
                 >
-                  Carregar dados
+                  <ButtonContent active={loadingData}>Carregar dados</ButtonContent>
                 </button>
               </div>
             </section>
@@ -1632,7 +1833,7 @@ function App() {
                           key={solicitacao.id}
                           disabled={actionLocked}
                           onClick={() =>
-                            setActiveTab(
+                            navigateToTab(
                               solicitacao.status === 'ABERTA'
                                 ? 'classificar-solicitacao'
                                 : 'solicitacoes',
@@ -1686,9 +1887,9 @@ function App() {
                           }))
                         }
                       >
-                        <option value="Normal">Normal</option>
+                        <option value="Baixa">Baixa</option>
+                        <option value="Media">Media</option>
                         <option value="Alta">Alta</option>
-                        <option value="Urgente">Urgente</option>
                       </select>
                     </label>
                     <label>
@@ -1714,7 +1915,9 @@ function App() {
                       !draft.descricaoNecessidade.trim()
                     }
                   >
-                    Criar solicitacao
+                    <ButtonContent active={pendingAction === ACTIONS.criarSolicitacao}>
+                      Criar solicitacao
+                    </ButtonContent>
                   </button>
                 </form>
               </section>
@@ -1739,7 +1942,9 @@ function App() {
                     disabled={actionLocked || solicitacoes.length < 1}
                     onClick={handleLimparSolicitacoesTeste}
                   >
-                    Limpar solicitacoes
+                    <ButtonContent active={pendingAction === ACTIONS.limparSolicitacoes}>
+                      Limpar solicitacoes
+                    </ButtonContent>
                   </button>
                 </div>
               </section>
@@ -1831,6 +2036,7 @@ function App() {
                         }))
                       }
                     >
+                      <option value="">Selecione um item</option>
                       {itensAtivos.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.codigo ? `${item.codigo} - ${item.descricao}` : item.descricao}
@@ -1867,18 +2073,40 @@ function App() {
                       />
                     </label>
                   </div>
-                  <button
-                    type="submit"
-                    className="primary"
-                    disabled={
-                      actionLocked ||
-                      !selectedClassificacaoSolicitacao ||
-                      !selectedClassificacaoItem ||
-                      Number(classificacaoForm.quantidade) <= 0
-                    }
-                  >
-                    Lancar item
-                  </button>
+                  <div className="form-actions form-actions-centered">
+                    <button
+                      type="button"
+                      disabled={actionLocked}
+                      onClick={() => navigateToTab('solicitacoes')}
+                    >
+                      Voltar a solicitacao
+                    </button>
+                    <button
+                      type="submit"
+                      className="primary"
+                      disabled={
+                        actionLocked ||
+                        !selectedClassificacaoSolicitacao ||
+                        !selectedClassificacaoItem ||
+                        Number(classificacaoForm.quantidade) <= 0
+                      }
+                    >
+                      <ButtonContent active={pendingAction === ACTIONS.lancarItem}>
+                        Lancar item
+                      </ButtonContent>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        actionLocked ||
+                        !selectedClassificacaoSolicitacao ||
+                        itensClassificacao.length < 1
+                      }
+                      onClick={goToEnvioCotacao}
+                    >
+                      Avancar para pedir cotacao
+                    </button>
+                  </div>
                 </section>
               </div>
             </form>
@@ -1903,7 +2131,9 @@ function App() {
                         disabled={actionLocked}
                         onClick={() => handleRemoveClassificacaoItem(item.id)}
                       >
-                        Remover
+                        <ButtonContent active={pendingAction === ACTIONS.removerItem}>
+                          Remover
+                        </ButtonContent>
                       </button>
                     </div>
                   ))}
@@ -2026,7 +2256,7 @@ function App() {
                     <button
                       type="button"
                       disabled={actionLocked}
-                      onClick={() => setActiveTab('solicitacoes')}
+                      onClick={() => navigateToTab('solicitacoes')}
                     >
                       Voltar
                     </button>
@@ -2040,7 +2270,9 @@ function App() {
                         !envioCotacao.usuarioId
                       }
                     >
-                      Criar e enviar cotacao
+                      <ButtonContent active={pendingAction === ACTIONS.enviarCotacao}>
+                        Criar e enviar cotacao
+                      </ButtonContent>
                     </button>
                   </div>
                 </section>
@@ -2115,12 +2347,21 @@ function App() {
                     Fornecedor da cotacao
                     <select
                       value={retornoCotacao.cotacaoFornecedorId}
-                      onChange={(event) =>
-                        setRetornoCotacao((current) => ({
-                          ...current,
-                          cotacaoFornecedorId: event.target.value,
-                        }))
-                      }
+                      onChange={(event) => {
+                        const fornecedor = (selectedRetornoCotacao?.fornecedores || []).find(
+                          (item) => Number(item.id) === Number(event.target.value),
+                        )
+
+                        setRetornoCotacao((current) =>
+                          withRetornoStatus(
+                            {
+                              ...current,
+                              cotacaoFornecedorId: event.target.value,
+                            },
+                            retornoStatusFromFornecedor(fornecedor),
+                          ),
+                        )
+                      }}
                     >
                       {(selectedRetornoCotacao?.fornecedores || []).map((fornecedor) => (
                         <option key={fornecedor.id} value={fornecedor.id}>
@@ -2134,10 +2375,9 @@ function App() {
                     <select
                       value={retornoCotacao.status}
                       onChange={(event) =>
-                        setRetornoCotacao((current) => ({
-                          ...current,
-                          status: event.target.value,
-                        }))
+                        setRetornoCotacao((current) =>
+                          withRetornoStatus(current, event.target.value),
+                        )
                       }
                     >
                       <option value="RESPONDIDO">Respondido</option>
@@ -2270,7 +2510,7 @@ function App() {
                   <button
                     type="button"
                     disabled={actionLocked}
-                    onClick={() => setActiveTab('cotacoes')}
+                    onClick={() => navigateToTab('cotacoes')}
                   >
                     Voltar
                   </button>
@@ -2284,7 +2524,9 @@ function App() {
                       !defaultUsuarioId
                     }
                   >
-                    Registrar retorno
+                    <ButtonContent active={pendingAction === ACTIONS.registrarRetorno}>
+                      Registrar retorno
+                    </ButtonContent>
                   </button>
                 </div>
               </section>
@@ -2469,7 +2711,7 @@ function App() {
                   <button
                     type="button"
                     disabled={actionLocked}
-                    onClick={() => setActiveTab('cotacoes')}
+                    onClick={() => navigateToTab('cotacoes')}
                   >
                     Voltar
                   </button>
@@ -2483,7 +2725,9 @@ function App() {
                       (aprovacaoCotacao.decisao === 'APROVAR' && !selectedAprovacaoFornecedor)
                     }
                   >
-                    Confirmar decisao
+                    <ButtonContent active={pendingAction === ACTIONS.confirmarDecisao}>
+                      Confirmar decisao
+                    </ButtonContent>
                   </button>
                 </div>
               </section>
@@ -2505,7 +2749,9 @@ function App() {
                   onClick={createOrdemCompra}
                   disabled={actionLocked || !compraFornecedorElegivel || !defaultUsuarioId}
                 >
-                  Gerar ordem de compra
+                  <ButtonContent active={pendingAction === ACTIONS.gerarOrdemCompra}>
+                    Gerar ordem de compra
+                  </ButtonContent>
                 </button>
               </div>
               {compraFornecedorElegivel ? (
@@ -2636,7 +2882,9 @@ function App() {
                       !fornecedorForm.razaoSocial
                     }
                   >
-                    Cadastrar fornecedor
+                    <ButtonContent active={pendingAction === ACTIONS.cadastrarFornecedor}>
+                      Cadastrar fornecedor
+                    </ButtonContent>
                   </button>
                 </form>
               </section>
@@ -2724,7 +2972,9 @@ function App() {
                     className="primary"
                     disabled={actionLocked || !contatoForm.fornecedorId || !contatoForm.nome}
                   >
-                    Cadastrar contato
+                    <ButtonContent active={pendingAction === ACTIONS.cadastrarContato}>
+                      Cadastrar contato
+                    </ButtonContent>
                   </button>
                 </form>
               </section>
@@ -2757,7 +3007,9 @@ function App() {
                     className="primary"
                     disabled={actionLocked || !grupoForm.nome}
                   >
-                    Cadastrar grupo
+                    <ButtonContent active={pendingAction === ACTIONS.cadastrarGrupo}>
+                      Cadastrar grupo
+                    </ButtonContent>
                   </button>
                 </form>
               </section>
@@ -2873,7 +3125,9 @@ function App() {
                       !itemForm.grupoId
                     }
                   >
-                    Cadastrar item
+                    <ButtonContent active={pendingAction === ACTIONS.cadastrarItem}>
+                      Cadastrar item
+                    </ButtonContent>
                   </button>
                 </form>
               </section>
@@ -2902,6 +3156,15 @@ function StatusBadge(props) {
     props && typeof props === 'object' && Object.hasOwn(props, 'value') ? props.value : props
 
   return <span className={`badge ${statusClass[value] || 'neutral'}`}>{statusText(value)}</span>
+}
+
+function ButtonContent({ active, children }) {
+  return (
+    <span className="button-content">
+      {active && <span className="button-spinner" aria-hidden="true" />}
+      <span>{children}</span>
+    </span>
+  )
 }
 
 function ActionScreen({ title, subtitle, endpoint, children }) {
