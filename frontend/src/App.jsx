@@ -81,7 +81,8 @@ const ACTIONS = {
   limparSolicitacoes: 'Limpando solicitacoes',
   enviarCotacao: 'Criando e enviando solicitação de orçamento',
   registrarRetorno: 'Registrando retorno',
-  confirmarDecisao: 'Confirmando decisao',
+  aceitarCotacao: 'Aceitando cotacao',
+  recusarCotacao: 'Recusando cotacao',
   gerarOrdemCompra: 'Gerando ordem de compra',
   cadastrarFornecedor: 'Cadastrando fornecedor',
   cadastrarContato: 'Cadastrando contato',
@@ -96,9 +97,24 @@ const DEFAULT_RETORNO_PRAZO = '5 dias'
 const DEFAULT_RETORNO_TIPO_PAGAMENTO = 'BOLETO'
 const DEFAULT_RETORNO_PARCELAS = '1'
 const DEFAULT_RETORNO_OBSERVACOES = 'Condicoes recebidas por email e lancadas manualmente.'
-const DEFAULT_APROVACAO_OBSERVACAO =
-  'Melhor valor com fornecedor homologado e prazo compativel.'
+const DEFAULT_APROVACAO_OBSERVACAO = ''
 const RETORNO_PARCELAS_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index + 1))
+const APROVACAO_JUSTIFICATIVAS = [
+  ['MENOR_PRECO', 'Menor preço'],
+  ['PRAZO', 'Melhor prazo'],
+  ['PECA_ORIGINAL', 'Peça original'],
+  ['GARANTIA', 'Melhor garantia'],
+  ['QUALIDADE', 'Qualidade técnica'],
+  ['DISPONIBILIDADE', 'Disponibilidade imediata'],
+  ['OUTRO', 'Outro'],
+]
+const RECUSA_JUSTIFICATIVAS = [
+  ['VALOR_ACIMA', 'Valor acima do esperado'],
+  ['PRAZO_INCOMPATIVEL', 'Prazo incompatível'],
+  ['ESCOPO_INCORRETO', 'Escopo incorreto'],
+  ['DADOS_INSUFICIENTES', 'Dados insuficientes'],
+  ['OUTRO', 'Outro'],
+]
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', {
@@ -379,12 +395,26 @@ function retornoStatusFromFornecedor(fornecedor) {
   return retornoFornecedorStatuses.has(fornecedor?.status) ? fornecedor.status : 'RESPONDIDO'
 }
 
+function optionLabel(options, value) {
+  return options.find(([optionValue]) => optionValue === value)?.[1] || value
+}
+
 function retornoFormaPagamentoText(retornoCotacao) {
   if (retornoCotacao.tipoPagamento === 'A_VISTA') {
     return 'À vista'
   }
 
   return `Boleto - ${retornoCotacao.parcelasPagamento || DEFAULT_RETORNO_PARCELAS}x`
+}
+
+function aprovacaoObservacao(decisao, form) {
+  const comentario = form.comentario.trim()
+  const justificativa =
+    decisao === 'APROVAR'
+      ? optionLabel(APROVACAO_JUSTIFICATIVAS, form.justificativaAprovacao)
+      : optionLabel(RECUSA_JUSTIFICATIVAS, form.justificativaRecusa)
+
+  return comentario ? `${justificativa} - ${comentario}` : justificativa
 }
 
 function withRetornoStatus(form, status) {
@@ -470,9 +500,11 @@ function App() {
     cotacaoId: '',
     fornecedorId: '',
     usuarioId: '',
-    decisao: 'APROVAR',
-    observacao: DEFAULT_APROVACAO_OBSERVACAO,
+    justificativaAprovacao: '',
+    justificativaRecusa: '',
+    comentario: DEFAULT_APROVACAO_OBSERVACAO,
   })
+  const [confirmarRecusaCotacao, setConfirmarRecusaCotacao] = useState(false)
   const [fornecedorForm, setFornecedorForm] = useState({
     cnpj: '',
     razaoSocial: '',
@@ -837,9 +869,11 @@ function App() {
       cotacaoId: cotacao?.id ? String(cotacao.id) : '',
       fornecedorId: fornecedor?.fornecedor_id ? String(fornecedor.fornecedor_id) : '',
       usuarioId: defaultUsuarioId,
-      decisao: 'APROVAR',
-      observacao: DEFAULT_APROVACAO_OBSERVACAO,
+      justificativaAprovacao: '',
+      justificativaRecusa: '',
+      comentario: DEFAULT_APROVACAO_OBSERVACAO,
     })
+    setConfirmarRecusaCotacao(false)
   }
 
   function resetCadastroBaseForms() {
@@ -1434,10 +1468,10 @@ function App() {
     })
   }
 
-  async function aprovarCotacao(event) {
+  async function aprovarCotacao(event, decisao) {
     event.preventDefault()
 
-    return runLocked(ACTIONS.confirmarDecisao, async () => {
+    return runLocked(decisao === 'REPROVAR' ? ACTIONS.recusarCotacao : ACTIONS.aceitarCotacao, async () => {
       setActionFeedback('')
 
       try {
@@ -1445,16 +1479,29 @@ function App() {
           throw new Error('Selecione uma cotacao.')
         }
 
-        if (aprovacaoCotacao.decisao === 'REPROVAR') {
+        const comentario = aprovacaoCotacao.comentario.trim()
+        const observacao = aprovacaoObservacao(decisao, aprovacaoCotacao)
+        const usuarioAprovadorId = aprovacaoCotacao.usuarioId || defaultUsuarioId
+
+        if (!usuarioAprovadorId) {
+          throw new Error('Nenhum usuario ativo encontrado para registrar a decisao.')
+        }
+
+        if (decisao === 'REPROVAR') {
+          if (!aprovacaoCotacao.justificativaRecusa) {
+            throw new Error('Selecione uma justificativa para recusar a cotacao.')
+          }
+
           await comprasApi.atualizarCotacaoStatus(selectedAprovacaoCotacao.id, {
             status: 'REPROVADA',
-            usuario_id: Number(aprovacaoCotacao.usuarioId),
-            observacao: aprovacaoCotacao.observacao,
+            usuario_id: Number(usuarioAprovadorId),
+            observacao,
           })
           await loadBackendData({
             silent: true,
             successMessage: `Solicitacao N° ${cotacaoNumero(selectedAprovacaoCotacao)} reprovada.`,
           })
+          setConfirmarRecusaCotacao(false)
           navigateToTab('cotacoes', { clearFeedback: false })
           return
         }
@@ -1463,22 +1510,30 @@ function App() {
           throw new Error('Selecione um fornecedor com resposta registrada.')
         }
 
+        if (!aprovacaoCotacao.justificativaAprovacao) {
+          throw new Error('Selecione uma justificativa para aceitar a cotacao.')
+        }
+
+        if (aprovacaoCotacao.justificativaAprovacao === 'OUTRO' && !comentario) {
+          throw new Error('Informe um comentario para a justificativa Outro.')
+        }
+
         await comprasApi.atualizarCotacaoStatus(selectedAprovacaoCotacao.id, {
           status: 'APROVADA',
-          usuario_id: Number(aprovacaoCotacao.usuarioId),
-          observacao: aprovacaoCotacao.observacao,
+          usuario_id: Number(usuarioAprovadorId),
+          observacao,
         })
 
         const compra = await comprasApi.criarCompra({
           cotacao_id: selectedAprovacaoCotacao.id,
-          criado_por: Number(aprovacaoCotacao.usuarioId),
-          observacoes: aprovacaoCotacao.observacao,
+          criado_por: Number(usuarioAprovadorId),
+          observacoes: observacao,
         })
         const fornecedorCompra = await comprasApi.adicionarFornecedorCompra(compra.id, {
           fornecedor_id: Number(selectedAprovacaoFornecedor.fornecedor_id),
-          usuario_id: Number(aprovacaoCotacao.usuarioId),
-          justificativas: ['MENOR_PRECO'],
-          justificativa_texto: aprovacaoCotacao.observacao,
+          usuario_id: Number(usuarioAprovadorId),
+          justificativas: [aprovacaoCotacao.justificativaAprovacao],
+          justificativa_texto: observacao,
           prazo_entrega: selectedAprovacaoFornecedor.prazo_entrega,
           forma_pagamento: selectedAprovacaoFornecedor.forma_pagamento,
         })
@@ -1491,23 +1546,24 @@ function App() {
           await comprasApi.adicionarItemCompra(compra.id, fornecedorCompra.id, {
             solicitacao_item_id: Number(item.solicitacao_item_id),
             quantidade_pedida: Number(item.quantidade || 0),
-            usuario_id: Number(aprovacaoCotacao.usuarioId),
+            usuario_id: Number(usuarioAprovadorId),
           })
         }
 
         await comprasApi.enviarCompraAprovacao(compra.id, {
-          usuario_id: Number(aprovacaoCotacao.usuarioId),
+          usuario_id: Number(usuarioAprovadorId),
           observacao: 'Compra enviada para aprovacao pelo prototipo.',
         })
         await comprasApi.aprovarCompra(compra.id, {
-          aprovador_id: Number(aprovacaoCotacao.usuarioId),
-          observacao: aprovacaoCotacao.observacao,
+          aprovador_id: Number(usuarioAprovadorId),
+          observacao,
         })
 
         await loadBackendData({
           silent: true,
           successMessage: `Solicitacao N° ${compraNumero(compra)} criada e aprovada no backend.`,
         })
+        setConfirmarRecusaCotacao(false)
         navigateToTab('compras', { clearFeedback: false })
       } catch (error) {
         setActionFeedback(`Nao foi possivel aprovar cotacao: ${error.message}`)
@@ -1700,7 +1756,11 @@ function App() {
       ...current,
       cotacaoId,
       fornecedorId: firstFornecedor?.fornecedor_id ? String(firstFornecedor.fornecedor_id) : '',
+      justificativaAprovacao: '',
+      justificativaRecusa: '',
+      comentario: DEFAULT_APROVACAO_OBSERVACAO,
     }))
+    setConfirmarRecusaCotacao(false)
   }
 
   function goToEnvioCotacao() {
@@ -1713,6 +1773,16 @@ function App() {
       solicitacaoId: String(selectedClassificacaoSolicitacao.id),
     }))
     navigateToTab('enviar-cotacao')
+  }
+
+  function handleRecusarCotacao(event) {
+    if (!confirmarRecusaCotacao) {
+      event.preventDefault()
+      setConfirmarRecusaCotacao(true)
+      return
+    }
+
+    aprovarCotacao(event, 'REPROVAR')
   }
 
   return (
@@ -2602,10 +2672,10 @@ function App() {
         {activeTab === 'aprovar-cotacao' && (
           <ActionScreen
             title="Aprovar cotacao"
-            subtitle="Escolhe o fornecedor vencedor e cria a compra"
+            subtitle="Escolhe o fornecedor pelo comparativo e cria a compra"
             endpoint="PATCH /cotacoes/:id/status"
           >
-            <form className="action-form" onSubmit={aprovarCotacao}>
+            <form className="action-form" onSubmit={(event) => event.preventDefault()}>
               <div className="action-grid">
                 <section className="section-block solicitation-context">
                   <div className="section-heading">
@@ -2645,114 +2715,103 @@ function App() {
                   )}
                 </section>
 
-                <section className="section-block">
+                <section className="section-block comparison-block">
                   <div className="section-heading">
-                    <h2>Decisao</h2>
-                    <span>compra gerada no backend</span>
+                    <h2>Comparativo de fornecedores</h2>
+                    <span>respostas reais da cotacao</span>
                   </div>
+                  <div className="supplier-comparison">
+                    {(selectedAprovacaoCotacao?.fornecedores || [])
+                      .filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
+                      .map((fornecedor) => (
+                        <label className="supplier-card" key={fornecedor.id}>
+                          <input
+                            type="radio"
+                            name="fornecedor-vencedor"
+                            checked={
+                              Number(aprovacaoCotacao.fornecedorId) ===
+                              Number(fornecedor.fornecedor_id)
+                            }
+                            onChange={() => {
+                              setAprovacaoCotacao((current) => ({
+                                ...current,
+                                fornecedorId: String(fornecedor.fornecedor_id),
+                              }))
+                              setConfirmarRecusaCotacao(false)
+                            }}
+                          />
+                          <span>
+                            <strong>{fornecedorNome(fornecedor)}</strong>
+                            <small>
+                              {fornecedor.prazo_entrega || 'Prazo nao informado'} |{' '}
+                              {fornecedor.forma_pagamento || 'Pagamento nao informado'}
+                            </small>
+                          </span>
+                          <b>{formatCurrency(cotacaoFornecedorTotal(fornecedor))}</b>
+                        </label>
+                      ))}
+                  </div>
+                </section>
+              </div>
+
+              <section className="section-block">
+                <div className="section-heading">
+                  <h2>Decisao</h2>
+                  <span>compra gerada no backend</span>
+                </div>
+                <div className="action-grid">
                   <label>
-                    Usuario aprovador
+                    Justificativa do aceite
                     <select
-                      value={aprovacaoCotacao.usuarioId}
+                      value={aprovacaoCotacao.justificativaAprovacao}
                       onChange={(event) =>
                         setAprovacaoCotacao((current) => ({
                           ...current,
-                          usuarioId: event.target.value,
+                          justificativaAprovacao: event.target.value,
                         }))
                       }
                     >
-                      {usuariosAtivos.map((usuario) => (
-                        <option key={usuario.id} value={usuario.id}>
-                          {usuarioNome(usuario)}
+                      <option value="">Selecione uma justificativa</option>
+                      {APROVACAO_JUSTIFICATIVAS.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label>
-                    Fornecedor vencedor
+                    Justificativa da recusa
                     <select
-                      value={aprovacaoCotacao.fornecedorId}
+                      value={aprovacaoCotacao.justificativaRecusa}
                       onChange={(event) =>
                         setAprovacaoCotacao((current) => ({
                           ...current,
-                          fornecedorId: event.target.value,
+                          justificativaRecusa: event.target.value,
                         }))
                       }
                     >
-                      {(selectedAprovacaoCotacao?.fornecedores || [])
-                        .filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
-                        .map((fornecedor) => (
-                          <option key={fornecedor.id} value={fornecedor.fornecedor_id}>
-                            {fornecedorNome(fornecedor)}
-                          </option>
-                        ))}
+                      <option value="">Selecione uma justificativa</option>
+                      {RECUSA_JUSTIFICATIVAS.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
                     </select>
                   </label>
-                  <label>
-                    Decisao
-                    <select
-                      value={aprovacaoCotacao.decisao}
-                      onChange={(event) =>
-                        setAprovacaoCotacao((current) => ({
-                          ...current,
-                          decisao: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="APROVAR">Aprovar</option>
-                      <option value="REPROVAR">Reprovar</option>
-                    </select>
-                  </label>
-                  <label>
-                    Justificativa
-                    <textarea
-                      value={aprovacaoCotacao.observacao}
-                      onChange={(event) =>
-                        setAprovacaoCotacao((current) => ({
-                          ...current,
-                          observacao: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                </section>
-              </div>
-
-              <section className="section-block comparison-block">
-                <div className="section-heading">
-                  <h2>Comparativo de fornecedores</h2>
-                  <span>respostas reais da cotacao</span>
                 </div>
-                <div className="supplier-comparison">
-                  {(selectedAprovacaoCotacao?.fornecedores || [])
-                    .filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
-                    .map((fornecedor) => (
-                      <label className="supplier-card" key={fornecedor.id}>
-                        <input
-                          type="radio"
-                          name="fornecedor-vencedor"
-                          checked={
-                            Number(aprovacaoCotacao.fornecedorId) ===
-                            Number(fornecedor.fornecedor_id)
-                          }
-                          onChange={() =>
-                            setAprovacaoCotacao((current) => ({
-                              ...current,
-                              fornecedorId: String(fornecedor.fornecedor_id),
-                            }))
-                          }
-                        />
-                        <span>
-                          <strong>{fornecedorNome(fornecedor)}</strong>
-                          <small>
-                            {fornecedor.prazo_entrega || 'Prazo nao informado'} |{' '}
-                            {fornecedor.forma_pagamento || 'Pagamento nao informado'}
-                          </small>
-                        </span>
-                        <b>{formatCurrency(cotacaoFornecedorTotal(fornecedor))}</b>
-                      </label>
-                    ))}
-                </div>
+                <label className="full-width-label">
+                  Comentario
+                  <textarea
+                    value={aprovacaoCotacao.comentario}
+                    onChange={(event) =>
+                      setAprovacaoCotacao((current) => ({
+                        ...current,
+                        comentario: event.target.value,
+                      }))
+                    }
+                    placeholder="Opcional para aceite e recusa"
+                  />
+                </label>
                 <div className="form-actions">
                   <button
                     type="button"
@@ -2762,17 +2821,36 @@ function App() {
                     Voltar
                   </button>
                   <button
-                    type="submit"
+                    type="button"
                     className="primary"
+                    onClick={(event) => aprovarCotacao(event, 'APROVAR')}
                     disabled={
                       actionLocked ||
                       !selectedAprovacaoCotacao ||
-                      !aprovacaoCotacao.usuarioId ||
-                      (aprovacaoCotacao.decisao === 'APROVAR' && !selectedAprovacaoFornecedor)
+                      !(aprovacaoCotacao.usuarioId || defaultUsuarioId) ||
+                      !selectedAprovacaoFornecedor ||
+                      !aprovacaoCotacao.justificativaAprovacao ||
+                      (aprovacaoCotacao.justificativaAprovacao === 'OUTRO' &&
+                        !aprovacaoCotacao.comentario.trim())
                     }
                   >
-                    <ButtonContent active={pendingAction === ACTIONS.confirmarDecisao}>
-                      Confirmar decisao
+                    <ButtonContent active={pendingAction === ACTIONS.aceitarCotacao}>
+                      Aceitar
+                    </ButtonContent>
+                  </button>
+                  <button
+                    type="button"
+                    className="danger-action"
+                    onClick={handleRecusarCotacao}
+                    disabled={
+                      actionLocked ||
+                      !selectedAprovacaoCotacao ||
+                      !(aprovacaoCotacao.usuarioId || defaultUsuarioId) ||
+                      !aprovacaoCotacao.justificativaRecusa
+                    }
+                  >
+                    <ButtonContent active={pendingAction === ACTIONS.recusarCotacao}>
+                      {confirmarRecusaCotacao ? 'Confirmar recusa' : 'Recusar'}
                     </ButtonContent>
                   </button>
                 </div>
