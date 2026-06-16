@@ -16,6 +16,19 @@ export async function createItemSolicitacao(req, res, next) {
   }
 }
 
+export async function updateItemSolicitacao(req, res, next) {
+  try {
+    const item = await itensSolicitacaoService.update(
+      req.params.id,
+      req.params.itemSolicitacaoId,
+      req.body
+    );
+    res.status(200).json(item);
+  } catch (error) {
+    sendError(res, error);
+  }
+}
+
 export async function deleteItemSolicitacao(req, res, next) {
   try {
     await itensSolicitacaoService.remove(req.params.id, req.params.itemSolicitacaoId);

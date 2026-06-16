@@ -8,6 +8,7 @@ import testBloquearSegundaDecisao from './aprovacoes/bloquear-segunda-decisao.te
 import testReprovarSolicitacao from './aprovacoes/reprovar-solicitacao.test.js';
 import testAdicionarNecessidadeLivre from './itens/adicionar-necessidade-livre.test.js';
 import testAdicionarItemSolicitacao from './itens/adicionar-item-solicitacao.test.js';
+import testAtualizarItemSolicitacao from './itens/atualizar-item-solicitacao.test.js';
 import testBloquearAdicaoItemSolicitacaoEncerrada from './itens/bloquear-adicao-item-solicitacao-encerrada.test.js';
 import testBloquearRemocaoItemSolicitacaoEncerrada from './itens/bloquear-remocao-item-solicitacao-encerrada.test.js';
 import testRemoverItemSolicitacao from './itens/remover-item-solicitacao.test.js';
@@ -39,6 +40,7 @@ const tests = [
     items: [
       ['adicionar item solicitacao', testAdicionarItemSolicitacao],
       ['adicionar necessidade livre', testAdicionarNecessidadeLivre],
+      ['atualizar item solicitacao', testAtualizarItemSolicitacao],
       ['remover item solicitacao', testRemoverItemSolicitacao],
       ['validar item inexistente', testValidarItemInexistente],
       ['validar quantidade invalida', testValidarQuantidadeInvalida],

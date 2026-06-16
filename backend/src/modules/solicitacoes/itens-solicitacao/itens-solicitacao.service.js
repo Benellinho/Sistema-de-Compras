@@ -74,20 +74,42 @@ function validateDescricaoNecessidade(descricao) {
   }
 }
 
-async function create(solicitacaoId, data) {
-  await validateSolicitacaoAberta(solicitacaoId);
+async function normalizeItemSolicitacaoData(data) {
   const item = await validateItemExiste(data?.item_id);
   const quantidade = normalizeQuantidade(data?.quantidade);
   validateDescricaoNecessidade(data?.descricao_necessidade);
 
-  return itensSolicitacaoRepository.create({
-    solicitacao_id: solicitacaoId,
+  return {
     item_id: item ? data.item_id : null,
     descricao_necessidade: String(data.descricao_necessidade).trim(),
     quantidade,
     unidade_snapshot: item?.unidade || 'UN',
     observacoes: data?.observacoes ?? null
+  };
+}
+
+async function create(solicitacaoId, data) {
+  await validateSolicitacaoAberta(solicitacaoId);
+  const itemData = await normalizeItemSolicitacaoData(data);
+
+  return itensSolicitacaoRepository.create({
+    solicitacao_id: solicitacaoId,
+    ...itemData
   });
+}
+
+async function update(solicitacaoId, itemSolicitacaoId, data) {
+  await validateSolicitacaoAberta(solicitacaoId);
+
+  const itemSolicitacao = await itensSolicitacaoRepository.findById(itemSolicitacaoId);
+
+  if (!itemSolicitacao || Number(itemSolicitacao.solicitacao_id) !== Number(solicitacaoId)) {
+    throw createNotFoundError('Item da solicitacao nao encontrado.');
+  }
+
+  const itemData = await normalizeItemSolicitacaoData(data);
+
+  return itensSolicitacaoRepository.update(itemSolicitacaoId, itemData);
 }
 
 async function remove(solicitacaoId, itemSolicitacaoId) {
@@ -104,5 +126,6 @@ async function remove(solicitacaoId, itemSolicitacaoId) {
 
 export default {
   create,
+  update,
   remove
 };

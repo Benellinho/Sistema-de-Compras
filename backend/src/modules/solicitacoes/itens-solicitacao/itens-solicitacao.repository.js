@@ -47,6 +47,23 @@ async function create({ solicitacao_id, item_id, descricao_necessidade, quantida
   return findById(result.lastID);
 }
 
+async function update(id, { item_id, descricao_necessidade, quantidade, unidade_snapshot, observacoes = null }) {
+  const database = await getDatabase();
+
+  await database.run(
+    `UPDATE solicitacao_compra_itens
+     SET item_id = ?,
+         descricao_necessidade = ?,
+         quantidade = ?,
+         unidade_snapshot = ?,
+         observacoes = ?
+     WHERE id = ?`,
+    [item_id, descricao_necessidade, quantidade, unidade_snapshot, observacoes, id]
+  );
+
+  return findById(id);
+}
+
 async function remove(id) {
   const database = await getDatabase();
 
@@ -56,5 +73,6 @@ async function remove(id) {
 export default {
   findById,
   create,
+  update,
   remove
 };

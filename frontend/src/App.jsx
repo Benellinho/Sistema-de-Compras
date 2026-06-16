@@ -77,6 +77,7 @@ const retornoFornecedorStatuses = new Set(['RESPONDIDO', 'RECUSADO', 'SEM_RESPOS
 const ACTIONS = {
   criarSolicitacao: 'Criando solicitacao',
   lancarItem: 'Lancando item',
+  editarItem: 'Salvando item',
   removerItem: 'Removendo item',
   limparSolicitacoes: 'Limpando solicitacoes',
   enviarCotacao: 'Criando e enviando solicitação de orçamento',
@@ -475,6 +476,7 @@ function App() {
   })
   const [classificacaoForm, setClassificacaoForm] = useState({
     solicitacaoId: '',
+    itemSolicitacaoId: '',
     itemId: '',
     quantidade: '',
     observacoes: '',
@@ -599,6 +601,7 @@ function App() {
     () => solicitacaoItensCatalogados(selectedClassificacaoSolicitacao),
     [selectedClassificacaoSolicitacao],
   )
+  const isEditingClassificacaoItem = Boolean(classificacaoForm.itemSolicitacaoId)
 
   const selectedRetornoCotacao = useMemo(
     () => cotacoes.find((cotacao) => Number(cotacao.id) === Number(retornoCotacao.cotacaoId)),
@@ -822,6 +825,7 @@ function App() {
       solicitacaoId: solicitacoesClassificaveis[0]?.id
         ? String(solicitacoesClassificaveis[0].id)
         : '',
+      itemSolicitacaoId: '',
       itemId: '',
       quantidade: '',
       observacoes: '',
@@ -990,6 +994,13 @@ function App() {
       const solicitacaoIsValid = nextSolicitacoesClassificaveis.some(
         (solicitacao) => Number(solicitacao.id) === Number(current.solicitacaoId),
       )
+      const selectedSolicitacao = nextSolicitacoesClassificaveis.find(
+        (solicitacao) => Number(solicitacao.id) === Number(current.solicitacaoId),
+      )
+      const itemSolicitacaoIsValid = solicitacaoItensCatalogados(selectedSolicitacao).some(
+        (item) => Number(item.id) === Number(current.itemSolicitacaoId),
+      )
+      const shouldClearInvalidEditing = Boolean(current.itemSolicitacaoId) && !itemSolicitacaoIsValid
       const itemIsValid = nextItensAtivos.some((item) => Number(item.id) === Number(current.itemId))
 
       return {
@@ -999,8 +1010,10 @@ function App() {
           : nextSolicitacoesClassificaveis[0]?.id
             ? String(nextSolicitacoesClassificaveis[0].id)
             : '',
-        itemId: itemIsValid ? current.itemId : '',
-        quantidade: current.quantidade ?? '',
+        itemSolicitacaoId: itemSolicitacaoIsValid ? current.itemSolicitacaoId : '',
+        itemId: shouldClearInvalidEditing ? '' : itemIsValid ? current.itemId : '',
+        quantidade: shouldClearInvalidEditing ? '' : current.quantidade ?? '',
+        observacoes: shouldClearInvalidEditing ? '' : current.observacoes,
       }
     })
 
@@ -1261,6 +1274,7 @@ function App() {
         setClassificacaoForm((current) => ({
           ...current,
           solicitacaoId: String(solicitacao.id),
+          itemSolicitacaoId: '',
           itemId: '',
           quantidade: '',
           observacoes: '',
@@ -1275,7 +1289,9 @@ function App() {
   async function handleClassificarSolicitacao(event) {
     event.preventDefault()
 
-    return runLocked(ACTIONS.lancarItem, async () => {
+    const pendingActionName = classificacaoForm.itemSolicitacaoId ? ACTIONS.editarItem : ACTIONS.lancarItem
+
+    return runLocked(pendingActionName, async () => {
       setActionFeedback('')
 
       try {
@@ -1287,28 +1303,65 @@ function App() {
           throw new Error('Selecione um item cadastrado.')
         }
 
-        await comprasApi.adicionarItemSolicitacao(selectedClassificacaoSolicitacao.id, {
+        const itemPayload = {
           item_id: Number(classificacaoForm.itemId),
           quantidade: Number(classificacaoForm.quantidade || 0),
           descricao_necessidade: selectedClassificacaoItem.descricao,
           observacoes: classificacaoForm.observacoes || null,
-        })
+        }
+        const isEditing = Boolean(classificacaoForm.itemSolicitacaoId)
+
+        if (isEditing) {
+          await comprasApi.atualizarItemSolicitacao(
+            selectedClassificacaoSolicitacao.id,
+            classificacaoForm.itemSolicitacaoId,
+            itemPayload,
+          )
+        } else {
+          await comprasApi.adicionarItemSolicitacao(selectedClassificacaoSolicitacao.id, itemPayload)
+        }
 
         await loadBackendData({
           silent: true,
-          successMessage: `Item lancado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
+          successMessage: isEditing
+            ? `Item atualizado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`
+            : `Item lancado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
         })
         setClassificacaoForm((current) => ({
           ...current,
+          itemSolicitacaoId: '',
           itemId: '',
           quantidade: '',
           observacoes: '',
         }))
         navigateToTab('classificar-solicitacao', { clearFeedback: false })
       } catch (error) {
-        setActionFeedback(`Nao foi possivel lancar item: ${error.message}`)
+        setActionFeedback(`Nao foi possivel salvar item: ${error.message}`)
       }
     })
+  }
+
+  function handleEditClassificacaoItem(item) {
+    setActionFeedback('Item carregado para edicao.')
+    setClassificacaoForm((current) => ({
+      ...current,
+      solicitacaoId: item.solicitacao_id ? String(item.solicitacao_id) : current.solicitacaoId,
+      itemSolicitacaoId: String(item.id),
+      itemId: item.item_id ? String(item.item_id) : '',
+      quantidade: item.quantidade ? String(item.quantidade) : '',
+      observacoes: item.observacoes || '',
+    }))
+  }
+
+  function handleCancelEditClassificacaoItem() {
+    setActionFeedback('')
+    setClassificacaoForm((current) => ({
+      ...current,
+      itemSolicitacaoId: '',
+      itemId: '',
+      quantidade: '',
+      observacoes: '',
+    }))
   }
 
   async function handleRemoveClassificacaoItem(itemSolicitacaoId) {
@@ -2058,7 +2111,7 @@ function App() {
           <ActionScreen
             title="Classificar solicitacao"
             subtitle="Converte a necessidade em itens cadastrados para compra"
-            endpoint="POST /solicitacoes/:id/itens"
+            endpoint="POST/PUT/DELETE /solicitacoes/:id/itens"
           >
             <form className="action-form" onSubmit={handleClassificarSolicitacao}>
               <div className="action-grid">
@@ -2075,6 +2128,10 @@ function App() {
                         setClassificacaoForm((current) => ({
                           ...current,
                           solicitacaoId: event.target.value,
+                          itemSolicitacaoId: '',
+                          ...(current.itemSolicitacaoId
+                            ? { itemId: '', quantidade: '', observacoes: '' }
+                            : {}),
                         }))
                       }
                     >
@@ -2110,7 +2167,7 @@ function App() {
 
                 <section className="section-block">
                   <div className="section-heading">
-                    <h2>Lancar item</h2>
+                    <h2>{isEditingClassificacaoItem ? 'Editar item' : 'Lancar item'}</h2>
                     <span>{itensAtivos.length} itens ativos</span>
                   </div>
                   <label>
@@ -2169,6 +2226,15 @@ function App() {
                     >
                       Voltar a solicitacao
                     </button>
+                    {isEditingClassificacaoItem && (
+                      <button
+                        type="button"
+                        disabled={actionLocked}
+                        onClick={handleCancelEditClassificacaoItem}
+                      >
+                        Cancelar edicao
+                      </button>
+                    )}
                     <button
                       type="submit"
                       className="primary"
@@ -2179,8 +2245,13 @@ function App() {
                         Number(classificacaoForm.quantidade) <= 0
                       }
                     >
-                      <ButtonContent active={pendingAction === ACTIONS.lancarItem}>
-                        Lancar item
+                      <ButtonContent
+                        active={
+                          pendingAction ===
+                          (isEditingClassificacaoItem ? ACTIONS.editarItem : ACTIONS.lancarItem)
+                        }
+                      >
+                        {isEditingClassificacaoItem ? 'Salvar edicao' : 'Lancar item'}
                       </ButtonContent>
                     </button>
                     <button
@@ -2207,22 +2278,38 @@ function App() {
               {itensClassificacao.length > 0 ? (
                 <div className="classification-items">
                   {itensClassificacao.map((item) => (
-                    <div className="classification-item-row" key={item.id}>
+                    <div
+                      className={`classification-item-row${
+                        Number(classificacaoForm.itemSolicitacaoId) === Number(item.id)
+                          ? ' editing'
+                          : ''
+                      }`}
+                      key={item.id}
+                    >
                       <div>
                         <strong>{itemSolicitacaoDescricao(item)}</strong>
                         <span>
                           {Number(item.quantidade || 0)} {item.unidade_snapshot || ''}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        disabled={actionLocked}
-                        onClick={() => handleRemoveClassificacaoItem(item.id)}
-                      >
-                        <ButtonContent active={pendingAction === ACTIONS.removerItem}>
-                          Remover
-                        </ButtonContent>
-                      </button>
+                      <div className="classification-item-actions">
+                        <button
+                          type="button"
+                          disabled={actionLocked}
+                          onClick={() => handleEditClassificacaoItem(item)}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionLocked}
+                          onClick={() => handleRemoveClassificacaoItem(item.id)}
+                        >
+                          <ButtonContent active={pendingAction === ACTIONS.removerItem}>
+                            Remover
+                          </ButtonContent>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
