@@ -670,7 +670,12 @@ button:disabled {
   background: var(--bg);
 }
 
-.classification-item-row div {
+.classification-item-row.editing {
+  border-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.classification-item-row > div:first-child {
   min-width: 0;
   display: grid;
   gap: 4px;
@@ -683,6 +688,13 @@ button:disabled {
 .classification-item-row span {
   color: var(--text-soft);
   font-size: 13px;
+}
+
+.classification-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .quote-items,
@@ -915,6 +927,14 @@ td {
 
   .action-header {
     flex-direction: column;
+  }
+
+  .classification-item-actions {
+    justify-content: stretch;
+  }
+
+  .classification-item-actions button {
+    flex: 1 1 140px;
   }
 }
 
