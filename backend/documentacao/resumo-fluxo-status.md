@@ -35,6 +35,12 @@ Antes de iniciar o fluxo de compra, o sistema precisa ter:
 
 O usuário abre uma solicitação e informa os itens necessários.
 
+Usuários autorizados também podem iniciar uma solicitação diretamente pela etapa de classificação de itens. Nesse fluxo, a opção "Criar solicitação" prepara o lançamento direto e a solicitação aberta só é criada quando o primeiro item é lançado. O texto da solicitação criada por esse atalho deve seguir o formato:
+
+```txt
+Solicitação criada diretamente por Nome do usuário
+```
+
 Status principais:
 
 ```txt
