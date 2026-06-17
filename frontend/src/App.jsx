@@ -99,6 +99,7 @@ const DEFAULT_RETORNO_TIPO_PAGAMENTO = 'BOLETO'
 const DEFAULT_RETORNO_PARCELAS = '1'
 const DEFAULT_RETORNO_OBSERVACOES = 'Condicoes recebidas por email e lancadas manualmente.'
 const DEFAULT_APROVACAO_OBSERVACAO = ''
+const CLASSIFICACAO_CREATE_SOLICITACAO_VALUE = '__CREATE_SOLICITACAO__'
 const RETORNO_PARCELAS_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index + 1))
 const APROVACAO_JUSTIFICATIVAS = [
   ['MENOR_PRECO', 'Menor preço'],
@@ -540,7 +541,8 @@ function App() {
   )
   const gruposAtivos = useMemo(() => grupos.filter(isActiveItem), [grupos])
   const itensAtivos = useMemo(() => itens.filter(isActiveItem), [itens])
-  const defaultUsuarioId = usuariosAtivos[0]?.id ? String(usuariosAtivos[0].id) : ''
+  const defaultUsuario = usuariosAtivos[0]
+  const defaultUsuarioId = defaultUsuario?.id ? String(defaultUsuario.id) : ''
   const actionLocked = Boolean(pendingAction)
 
   const solicitacoesClassificaveis = useMemo(
@@ -602,6 +604,11 @@ function App() {
     [selectedClassificacaoSolicitacao],
   )
   const isEditingClassificacaoItem = Boolean(classificacaoForm.itemSolicitacaoId)
+  const isCreatingClassificacaoSolicitacao =
+    classificacaoForm.solicitacaoId === CLASSIFICACAO_CREATE_SOLICITACAO_VALUE
+  const hasClassificacaoSolicitacaoTarget =
+    Boolean(selectedClassificacaoSolicitacao) ||
+    (isCreatingClassificacaoSolicitacao && Boolean(defaultUsuarioId))
 
   const selectedRetornoCotacao = useMemo(
     () => cotacoes.find((cotacao) => Number(cotacao.id) === Number(retornoCotacao.cotacaoId)),
@@ -1286,6 +1293,18 @@ function App() {
     })
   }
 
+  function handleClassificacaoSolicitacaoChange(solicitacaoId) {
+    setActionFeedback('')
+    setClassificacaoForm((current) => ({
+      ...current,
+      solicitacaoId,
+      itemSolicitacaoId: '',
+      itemId: '',
+      quantidade: '',
+      observacoes: '',
+    }))
+  }
+
   async function handleClassificarSolicitacao(event) {
     event.preventDefault()
 
@@ -1295,12 +1314,18 @@ function App() {
       setActionFeedback('')
 
       try {
-        if (!selectedClassificacaoSolicitacao) {
-          throw new Error('Selecione uma solicitacao aberta.')
-        }
+        const shouldCreateSolicitacao = isCreatingClassificacaoSolicitacao
 
         if (!selectedClassificacaoItem) {
           throw new Error('Selecione um item cadastrado.')
+        }
+
+        if (!selectedClassificacaoSolicitacao && !shouldCreateSolicitacao) {
+          throw new Error('Selecione uma solicitacao aberta.')
+        }
+
+        if (shouldCreateSolicitacao && !defaultUsuarioId) {
+          throw new Error('Nenhum usuario ativo encontrado para criar a solicitacao.')
         }
 
         const itemPayload = {
@@ -1310,25 +1335,44 @@ function App() {
           observacoes: classificacaoForm.observacoes || null,
         }
         const isEditing = Boolean(classificacaoForm.itemSolicitacaoId)
+        let targetSolicitacao = selectedClassificacaoSolicitacao
 
         if (isEditing) {
           await comprasApi.atualizarItemSolicitacao(
-            selectedClassificacaoSolicitacao.id,
+            targetSolicitacao.id,
             classificacaoForm.itemSolicitacaoId,
             itemPayload,
           )
         } else {
-          await comprasApi.adicionarItemSolicitacao(selectedClassificacaoSolicitacao.id, itemPayload)
+          if (shouldCreateSolicitacao) {
+            const solicitacaoDiretaTexto = `Solicitação criada diretamente por ${usuarioNome(defaultUsuario)}`
+
+            targetSolicitacao = await comprasApi.criarSolicitacao({
+              solicitante_id: Number(defaultUsuarioId),
+              observacoes: buildSolicitacaoObservacoes({
+                necessidade: solicitacaoDiretaTexto,
+                urgencia: DEFAULT_URGENCIA,
+                centroCusto: '',
+              }),
+            })
+          }
+
+          await comprasApi.adicionarItemSolicitacao(targetSolicitacao.id, itemPayload)
         }
+
+        const feedbackSolicitacao = targetSolicitacao || selectedClassificacaoSolicitacao
 
         await loadBackendData({
           silent: true,
-          successMessage: isEditing
-            ? `Item atualizado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`
-            : `Item lancado na solicitação N° ${solicitacaoNumero(selectedClassificacaoSolicitacao)}.`,
+          successMessage: shouldCreateSolicitacao
+            ? `Solicitação N° ${solicitacaoNumero(feedbackSolicitacao)} criada e item lancado.`
+            : isEditing
+              ? `Item atualizado na solicitação N° ${solicitacaoNumero(feedbackSolicitacao)}.`
+              : `Item lancado na solicitação N° ${solicitacaoNumero(feedbackSolicitacao)}.`,
         })
         setClassificacaoForm((current) => ({
           ...current,
+          solicitacaoId: shouldCreateSolicitacao ? String(feedbackSolicitacao.id) : current.solicitacaoId,
           itemSolicitacaoId: '',
           itemId: '',
           quantidade: '',
@@ -2124,17 +2168,20 @@ function App() {
                     Solicitação
                     <select
                       value={classificacaoForm.solicitacaoId}
+                      disabled={actionLocked}
                       onChange={(event) =>
-                        setClassificacaoForm((current) => ({
-                          ...current,
-                          solicitacaoId: event.target.value,
-                          itemSolicitacaoId: '',
-                          ...(current.itemSolicitacaoId
-                            ? { itemId: '', quantidade: '', observacoes: '' }
-                            : {}),
-                        }))
+                        handleClassificacaoSolicitacaoChange(event.target.value)
                       }
                     >
+                      <option value="" disabled hidden>
+                        Selecione uma solicitação
+                      </option>
+                      <option
+                        value={CLASSIFICACAO_CREATE_SOLICITACAO_VALUE}
+                        disabled={!defaultUsuarioId}
+                      >
+                        Criar solicitação
+                      </option>
                       {solicitacoesClassificaveis.map((solicitacao) => (
                         <option key={solicitacao.id} value={solicitacao.id}>
                           {solicitacaoClassificacaoOption(solicitacao)}
@@ -2161,7 +2208,13 @@ function App() {
                       />
                     </>
                   ) : (
-                    <EmptyState text="Nao ha solicitacao aberta para classificar." />
+                    <EmptyState
+                      text={
+                        isCreatingClassificacaoSolicitacao
+                          ? 'A solicitacao sera criada ao lancar o primeiro item.'
+                          : 'Selecione ou crie uma solicitacao para lancar itens.'
+                      }
+                    />
                   )}
                 </section>
 
@@ -2240,7 +2293,7 @@ function App() {
                       className="primary"
                       disabled={
                         actionLocked ||
-                        !selectedClassificacaoSolicitacao ||
+                        !hasClassificacaoSolicitacaoTarget ||
                         !selectedClassificacaoItem ||
                         Number(classificacaoForm.quantidade) <= 0
                       }
