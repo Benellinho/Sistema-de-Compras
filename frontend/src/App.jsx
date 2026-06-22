@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { API_BASE_URL, API_ROUTES } from './config/api'
-import { comprasApi } from './services/api'
+import { BrowserRouter } from 'react-router-dom'
+import { SistemaComprasProvider } from './context/SistemaComprasContext.jsx'
+import { AppLayout } from './components/layout/AppLayout'
+import { AppRoutes } from './routes/AppRoutes'
 import './App.css'
 
 const tabs = [

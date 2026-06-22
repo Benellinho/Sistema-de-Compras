@@ -1,8 +1,18 @@
-# PARA LANÇAR A V1.0
-1. usar o Puppeteer para o pdf como provider
-2. usar o SMTP via nodemailer para o Localweb como provider
-3. realizar testes das novas features
-4. testar um fluxo completo com dados fictícios
-# features novas
-1. gerar pdf para solicitação de orçamento/cotação
-2. adicionar a função de fotos no orçamento
+# Features novas
+Finalização apos a ordem ser gerada
+
+# Fix
+Aprovação não esta aceitando parcial só ta aceitando um
+
+# Falar com o cliente
+Centro de custo/setor vai ser opções fixas ou ele escreve? 
+Vai ser definido na ordem de compra opções fixas a definir
+Justificativa vai ter motivos fixos de aprovação com campo de comentario ou sempre vai ser comentada? OK
+Vai ser campos fixos com comentarios
+Vai manter Forma de pagamento ou deixa isso pro financeiro? se vai manter mantem prazo de pagamento? OK
+No retorno da cotação: Boleto ou a vista e boleto informa quantas vezes pode dividir
+
+# Features distantes
+Painel de historico
+Envio de cotação pelo setor predefinido para facilitar marcação do chekbox
+Diferenciação de acesso por usuarios

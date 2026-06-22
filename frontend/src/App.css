@@ -119,7 +119,27 @@ button:hover {
   background: transparent;
 }
 
-.nav-tabs button.active {
+.nav-tabs a {
+  color: var(--text-strong);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  min-height: 38px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.nav-tabs a:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+
+.nav-tabs a[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.nav-tabs button.active,
+.nav-tabs a.active {
   background: var(--nav-active);
   border-color: var(--border);
 }
