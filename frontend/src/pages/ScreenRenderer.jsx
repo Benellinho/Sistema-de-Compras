@@ -1083,6 +1083,9 @@ export function ScreenRenderer({ screenId }) {
                         setAprovacaoCotacao((current) => ({
                           ...current,
                           justificativaAprovacao: event.target.value,
+                          justificativaRecusa: event.target.value
+                            ? ''
+                            : current.justificativaRecusa,
                         }))
                       }
                     >
@@ -1101,6 +1104,9 @@ export function ScreenRenderer({ screenId }) {
                       onChange={(event) =>
                         setAprovacaoCotacao((current) => ({
                           ...current,
+                          justificativaAprovacao: event.target.value
+                            ? ''
+                            : current.justificativaAprovacao,
                           justificativaRecusa: event.target.value,
                         }))
                       }
@@ -1182,30 +1188,30 @@ export function ScreenRenderer({ screenId }) {
                   <h2>Ordem de compra</h2>
                   <span>gera ordem para uma compra aprovada sem ordem ativa</span>
                 </div>
+                {compraFornecedoresElegiveis.length > 0 && (
+                  <label className="order-cost-center">
+                    Centro de custo
+                    <select
+                      value={ordemCompraForm.centroCusto}
+                      disabled={actionLocked}
+                      onChange={(event) =>
+                        setOrdemCompraForm((current) => ({
+                          ...current,
+                          centroCusto: event.target.value,
+                        }))
+                      }
+                    >
+                      {CENTROS_CUSTO_ORDEM_COMPRA.map((centroCusto) => (
+                        <option key={centroCusto} value={centroCusto}>
+                          {centroCusto}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
               {compraFornecedoresElegiveis.length > 0 ? (
                 <>
-                  <div className="order-cost-center">
-                    <label>
-                      Centro de custo
-                      <select
-                        value={ordemCompraForm.centroCusto}
-                        disabled={actionLocked}
-                        onChange={(event) =>
-                          setOrdemCompraForm((current) => ({
-                            ...current,
-                            centroCusto: event.target.value,
-                          }))
-                        }
-                      >
-                        {CENTROS_CUSTO_ORDEM_COMPRA.map((centroCusto) => (
-                          <option key={centroCusto} value={centroCusto}>
-                            {centroCusto}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
                   <div className="order-transfer-grid">
                     <section className="order-transfer-panel">
                       <div className="order-transfer-heading">
@@ -1255,6 +1261,22 @@ export function ScreenRenderer({ screenId }) {
                                   <strong>Solicitacao {compraNumero(compra)}</strong>
                                   <span>{fornecedorNome(fornecedor)}</span>
                                   <small>{formatCurrency(compraFornecedorTotal(fornecedor))}</small>
+                                  <details className="order-item-details">
+                                    <summary>Itens ({fornecedor.itens?.length || 0})</summary>
+                                    <ul>
+                                      {(fornecedor.itens || []).map((item) => (
+                                        <li key={item.id || item.solicitacao_item_id}>
+                                          <span>{itemSolicitacaoDescricao(item)}</span>
+                                          <small>
+                                            {Number(item.quantidade_pedida || 0)}{' '}
+                                            {item.unidade_snapshot || item.unidade || ''}
+                                            {' | '}
+                                            {formatCurrency(item.valor_total)}
+                                          </small>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </details>
                                 </div>
                                 <button
                                   type="button"
@@ -1309,6 +1331,22 @@ export function ScreenRenderer({ screenId }) {
                                   <strong>Solicitacao {compraNumero(compra)}</strong>
                                   <span>{fornecedorNome(fornecedor)}</span>
                                   <small>{formatCurrency(compraFornecedorTotal(fornecedor))}</small>
+                                  <details className="order-item-details">
+                                    <summary>Itens ({fornecedor.itens?.length || 0})</summary>
+                                    <ul>
+                                      {(fornecedor.itens || []).map((item) => (
+                                        <li key={item.id || item.solicitacao_item_id}>
+                                          <span>{itemSolicitacaoDescricao(item)}</span>
+                                          <small>
+                                            {Number(item.quantidade_pedida || 0)}{' '}
+                                            {item.unidade_snapshot || item.unidade || ''}
+                                            {' | '}
+                                            {formatCurrency(item.valor_total)}
+                                          </small>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </details>
                                 </div>
                                 <button
                                   type="button"
@@ -1335,7 +1373,6 @@ export function ScreenRenderer({ screenId }) {
                   </div>
                   <SummaryCard
                     rows={[
-                      ['Selecionadas', selectedCompraFornecedoresOrdem.length],
                       [
                         'Centro de custo',
                         ordemCompraForm.centroCusto,

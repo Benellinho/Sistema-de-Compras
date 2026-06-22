@@ -113,13 +113,15 @@ button:hover {
   color: #2563eb;
 }
 
-.nav-tabs button {
+.nav-tabs button,
+.nav-group summary {
   text-align: left;
   border-color: transparent;
   background: transparent;
 }
 
-.nav-tabs a {
+.nav-tabs a,
+.nav-group summary {
   color: var(--text-strong);
   border: 1px solid transparent;
   border-radius: 6px;
@@ -128,7 +130,48 @@ button:hover {
   text-decoration: none;
 }
 
-.nav-tabs a:hover {
+.nav-group {
+  display: grid;
+  gap: 4px;
+}
+
+.nav-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+  cursor: pointer;
+}
+
+.nav-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-group summary::after {
+  content: '▾';
+  color: var(--text-soft);
+  font-size: 12px;
+  transition: transform 0.16s ease;
+}
+
+.nav-group:not([open]) summary::after {
+  transform: rotate(-90deg);
+}
+
+.nav-subtabs {
+  display: grid;
+  gap: 4px;
+  padding-left: 12px;
+}
+
+.nav-subtabs a {
+  min-height: 34px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.nav-tabs a:hover,
+.nav-group summary:hover {
   border-color: var(--border-strong);
   background: var(--surface-muted);
 }
@@ -139,7 +182,8 @@ button:hover {
 }
 
 .nav-tabs button.active,
-.nav-tabs a.active {
+.nav-tabs a.active,
+.nav-group summary.active {
   background: var(--nav-active);
   border-color: var(--border);
 }
@@ -718,8 +762,8 @@ button:disabled {
 }
 
 .order-cost-center {
-  max-width: 360px;
-  margin-bottom: 16px;
+  flex: 0 1 280px;
+  min-width: 220px;
 }
 
 .order-transfer-grid {
@@ -770,6 +814,9 @@ button:disabled {
 .order-transfer-list {
   display: grid;
   gap: 10px;
+  max-height: 365px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .order-transfer-item {
@@ -793,6 +840,39 @@ button:disabled {
 .order-transfer-item small {
   color: var(--text-soft);
   font-size: 13px;
+}
+
+.order-item-details {
+  margin-top: 6px;
+}
+
+.order-item-details summary {
+  width: fit-content;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-item-details ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order-item-details li {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.order-transfer-panel.selected .order-item-details li {
+  background: var(--surface);
 }
 
 .quote-items,

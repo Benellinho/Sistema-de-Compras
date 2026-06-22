@@ -4,7 +4,27 @@ import { useSistemaCompras } from '../../context/comprasContext'
 import { API_BASE_URL } from '../../config/api'
 
 export function Sidebar() {
-  const { actionLocked, apiStatus, navigateToTab } = useSistemaCompras()
+  const { activeTab, actionLocked, apiStatus, navigateToTab } = useSistemaCompras()
+
+  function renderNavLink(item) {
+    return (
+      <NavLink
+        key={item.screenId}
+        to={item.path}
+        onClick={(event) => {
+          event.preventDefault()
+
+          if (!actionLocked) {
+            navigateToTab(item.screenId)
+          }
+        }}
+        className={({ isActive }) => (isActive ? 'active' : undefined)}
+        aria-disabled={actionLocked}
+      >
+        {item.label}
+      </NavLink>
+    )
+  }
 
   return (
     <aside className="sidebar">
@@ -17,23 +37,20 @@ export function Sidebar() {
       </div>
 
       <nav className="nav-tabs" aria-label="Navegacao principal">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.screenId}
-            to={item.path}
-            onClick={(event) => {
-              event.preventDefault()
+        {NAV_ITEMS.map((item) => {
+          if (!item.children) {
+            return renderNavLink(item)
+          }
 
-              if (!actionLocked) {
-                navigateToTab(item.screenId)
-              }
-            }}
-            className={({ isActive }) => (isActive ? 'active' : undefined)}
-            aria-disabled={actionLocked}
-          >
-            {item.label}
-          </NavLink>
-        ))}
+          const isGroupActive = item.children.some((child) => child.screenId === activeTab)
+
+          return (
+            <details className="nav-group" key={item.label} open={isGroupActive}>
+              <summary className={isGroupActive ? 'active' : undefined}>{item.label}</summary>
+              <div className="nav-subtabs">{item.children.map(renderNavLink)}</div>
+            </details>
+          )
+        })}
       </nav>
 
       <section className="api-panel">

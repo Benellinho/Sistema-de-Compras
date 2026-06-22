@@ -135,8 +135,38 @@ export const SCREEN_ROUTES = {
 
 export const NAV_ITEMS = [
   { screenId: 'painel', label: 'Dashboard', path: SCREEN_ROUTES.painel },
-  { screenId: 'solicitacoes', label: 'Solicitacoes', path: SCREEN_ROUTES.solicitacoes },
-  { screenId: 'cotacoes', label: 'Cotacoes', path: SCREEN_ROUTES.cotacoes },
+  {
+    label: 'Solicitacoes',
+    children: [
+      { screenId: 'solicitacoes', label: 'Solicitacoes', path: SCREEN_ROUTES.solicitacoes },
+      {
+        screenId: 'classificar-solicitacao',
+        label: 'Classificar solicitacoes',
+        path: SCREEN_ROUTES['classificar-solicitacao'],
+      },
+    ],
+  },
+  {
+    label: 'Cotacoes',
+    children: [
+      { screenId: 'cotacoes', label: 'Cotacoes', path: SCREEN_ROUTES.cotacoes },
+      {
+        screenId: 'enviar-cotacao',
+        label: 'Enviar cotacao',
+        path: SCREEN_ROUTES['enviar-cotacao'],
+      },
+      {
+        screenId: 'retorno-cotacao',
+        label: 'Retorno cotacao',
+        path: SCREEN_ROUTES['retorno-cotacao'],
+      },
+      {
+        screenId: 'aprovar-cotacao',
+        label: 'Aprovar cotacao',
+        path: SCREEN_ROUTES['aprovar-cotacao'],
+      },
+    ],
+  },
   { screenId: 'compras', label: 'Compras', path: SCREEN_ROUTES.compras },
   { screenId: 'ordens-compra', label: 'Ordens de compra', path: SCREEN_ROUTES['ordens-compra'] },
   { screenId: 'fornecedores', label: 'Fornecedores', path: SCREEN_ROUTES.fornecedores },
