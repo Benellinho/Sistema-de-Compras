@@ -92,6 +92,7 @@ export const DEFAULT_RETORNO_OBSERVACOES =
   'Condicoes recebidas por email e lancadas manualmente.'
 export const DEFAULT_APROVACAO_OBSERVACAO = ''
 export const CLASSIFICACAO_CREATE_SOLICITACAO_VALUE = '__CREATE_SOLICITACAO__'
+export const CENTROS_CUSTO_ORDEM_COMPRA = ['Oficina', 'RH', 'Operação', 'Escritorio']
 export const RETORNO_PARCELAS_OPTIONS = Array.from({ length: 12 }, (_, index) =>
   String(index + 1),
 )

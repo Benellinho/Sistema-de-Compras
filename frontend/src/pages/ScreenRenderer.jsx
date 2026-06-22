@@ -10,6 +10,7 @@ import { useSistemaCompras } from '../context/comprasContext'
 import {
   ACTIONS,
   APROVACAO_JUSTIFICATIVAS,
+  CENTROS_CUSTO_ORDEM_COMPRA,
   CLASSIFICACAO_CREATE_SOLICITACAO_VALUE,
   DEFAULT_RETORNO_PARCELAS,
   RECUSA_JUSTIFICATIVAS,
@@ -17,14 +18,13 @@ import {
 } from '../utils/constants'
 import {
   compraNumero,
-  compraTotal,
+  compraFornecedorTotal,
   cotacaoFornecedorTotal,
   cotacaoNumero,
   fornecedorNome,
   formatCurrency,
   itemSolicitacaoDescricao,
   retornoStatusFromFornecedor,
-  solicitacaoCentroCusto,
   solicitacaoClassificacaoOption,
   solicitacaoCotacaoOption,
   solicitacaoNecessidade,
@@ -55,6 +55,7 @@ export function ScreenRenderer({ screenId }) {
     envioCotacao,
     retornoCotacao,
     aprovacaoCotacao,
+    ordemCompraForm,
     confirmarRecusaCotacao,
     fornecedorForm,
     contatoForm,
@@ -85,7 +86,8 @@ export function ScreenRenderer({ screenId }) {
     selectedAprovacaoFornecedor,
     respostasDaCotacao,
     retornoTotal,
-    compraFornecedorElegivel,
+    compraFornecedoresElegiveis,
+    selectedCompraFornecedoresOrdem,
     metrics,
     solicitacaoRows,
     cotacaoRows,
@@ -96,6 +98,7 @@ export function ScreenRenderer({ screenId }) {
     setEnvioCotacao,
     setRetornoCotacao,
     setAprovacaoCotacao,
+    setOrdemCompraForm,
     setConfirmarRecusaCotacao,
     setFornecedorForm,
     setContatoForm,
@@ -262,19 +265,6 @@ export function ScreenRenderer({ screenId }) {
                         <option value="Media">Media</option>
                         <option value="Alta">Alta</option>
                       </select>
-                    </label>
-                    <label>
-                      Centro de custo
-                      <input
-                        value={draft.centroCusto}
-                        placeholder="Ex.: Manutencao"
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            centroCusto: event.target.value,
-                          }))
-                        }
-                      />
                     </label>
                   </div>
                   <button
@@ -599,7 +589,6 @@ export function ScreenRenderer({ screenId }) {
                         ['Necessidade', solicitacaoPrincipalItem(selectedEnvioSolicitacao)],
                         ['Itens', solicitacaoResumoItens(selectedEnvioSolicitacao)],
                         ['Urgencia', solicitacaoUrgencia(selectedEnvioSolicitacao) || '-'],
-                        ['Centro de custo', solicitacaoCentroCusto(selectedEnvioSolicitacao) || '-'],
                       ]}
                     />
                   ) : (
@@ -1193,25 +1182,192 @@ export function ScreenRenderer({ screenId }) {
                   <h2>Ordem de compra</h2>
                   <span>gera ordem para uma compra aprovada sem ordem ativa</span>
                 </div>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={createOrdemCompra}
-                  disabled={actionLocked || !compraFornecedorElegivel || !defaultUsuarioId}
-                >
-                  <ButtonContent active={pendingAction === ACTIONS.gerarOrdemCompra}>
-                    Gerar ordem de compra
-                  </ButtonContent>
-                </button>
               </div>
-              {compraFornecedorElegivel ? (
-                <SummaryCard
-                  rows={[
-                    ['Solicitacao', compraNumero(compraFornecedorElegivel.compra)],
-                    ['Fornecedor', fornecedorNome(compraFornecedorElegivel.fornecedor)],
-                    ['Total', formatCurrency(compraTotal(compraFornecedorElegivel.compra))],
-                  ]}
-                />
+              {compraFornecedoresElegiveis.length > 0 ? (
+                <>
+                  <div className="order-cost-center">
+                    <label>
+                      Centro de custo
+                      <select
+                        value={ordemCompraForm.centroCusto}
+                        disabled={actionLocked}
+                        onChange={(event) =>
+                          setOrdemCompraForm((current) => ({
+                            ...current,
+                            centroCusto: event.target.value,
+                          }))
+                        }
+                      >
+                        {CENTROS_CUSTO_ORDEM_COMPRA.map((centroCusto) => (
+                          <option key={centroCusto} value={centroCusto}>
+                            {centroCusto}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="order-transfer-grid">
+                    <section className="order-transfer-panel">
+                      <div className="order-transfer-heading">
+                        <div>
+                          <h3>Disponiveis</h3>
+                          <span>
+                            {
+                              compraFornecedoresElegiveis.filter(
+                                ({ fornecedor }) =>
+                                  !ordemCompraForm.compraFornecedorIds.includes(
+                                    String(fornecedor.id),
+                                  ),
+                              ).length
+                            }{' '}
+                            pendentes
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={actionLocked}
+                          onClick={() =>
+                            setOrdemCompraForm((current) => ({
+                              ...current,
+                              compraFornecedorIds: compraFornecedoresElegiveis.map(
+                                ({ fornecedor }) => String(fornecedor.id),
+                              ),
+                            }))
+                          }
+                        >
+                          Adicionar todos
+                        </button>
+                      </div>
+                      <div className="order-transfer-list">
+                        {compraFornecedoresElegiveis
+                          .filter(
+                            ({ fornecedor }) =>
+                              !ordemCompraForm.compraFornecedorIds.includes(
+                                String(fornecedor.id),
+                              ),
+                          )
+                          .map(({ compra, fornecedor }) => {
+                            const compraFornecedorId = String(fornecedor.id)
+
+                            return (
+                              <article className="order-transfer-item" key={compraFornecedorId}>
+                                <div>
+                                  <strong>Solicitacao {compraNumero(compra)}</strong>
+                                  <span>{fornecedorNome(fornecedor)}</span>
+                                  <small>{formatCurrency(compraFornecedorTotal(fornecedor))}</small>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={actionLocked}
+                                  onClick={() =>
+                                    setOrdemCompraForm((current) => ({
+                                      ...current,
+                                      compraFornecedorIds: [
+                                        ...new Set([
+                                          ...current.compraFornecedorIds,
+                                          compraFornecedorId,
+                                        ]),
+                                      ],
+                                    }))
+                                  }
+                                >
+                                  Adicionar
+                                </button>
+                              </article>
+                            )
+                          })}
+                      </div>
+                    </section>
+
+                    <section className="order-transfer-panel selected">
+                      <div className="order-transfer-heading">
+                        <div>
+                          <h3>Para gerar</h3>
+                          <span>{selectedCompraFornecedoresOrdem.length} selecionadas</span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={actionLocked || selectedCompraFornecedoresOrdem.length < 1}
+                          onClick={() =>
+                            setOrdemCompraForm((current) => ({
+                              ...current,
+                              compraFornecedorIds: [],
+                            }))
+                          }
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                      <div className="order-transfer-list">
+                        {selectedCompraFornecedoresOrdem.length > 0 ? (
+                          selectedCompraFornecedoresOrdem.map(({ compra, fornecedor }) => {
+                            const compraFornecedorId = String(fornecedor.id)
+
+                            return (
+                              <article className="order-transfer-item" key={compraFornecedorId}>
+                                <div>
+                                  <strong>Solicitacao {compraNumero(compra)}</strong>
+                                  <span>{fornecedorNome(fornecedor)}</span>
+                                  <small>{formatCurrency(compraFornecedorTotal(fornecedor))}</small>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={actionLocked}
+                                  onClick={() =>
+                                    setOrdemCompraForm((current) => ({
+                                      ...current,
+                                      compraFornecedorIds: current.compraFornecedorIds.filter(
+                                        (id) => id !== compraFornecedorId,
+                                      ),
+                                    }))
+                                  }
+                                >
+                                  Remover
+                                </button>
+                              </article>
+                            )
+                          })
+                        ) : (
+                          <EmptyState text="Nenhuma ordem selecionada para gerar." />
+                        )}
+                      </div>
+                    </section>
+                  </div>
+                  <SummaryCard
+                    rows={[
+                      ['Selecionadas', selectedCompraFornecedoresOrdem.length],
+                      [
+                        'Centro de custo',
+                        ordemCompraForm.centroCusto,
+                      ],
+                      [
+                        'Total selecionado',
+                        formatCurrency(
+                          selectedCompraFornecedoresOrdem.reduce(
+                            (sum, item) => sum + compraFornecedorTotal(item.fornecedor),
+                            0,
+                          ),
+                        ),
+                      ],
+                    ]}
+                  />
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={createOrdemCompra}
+                      disabled={
+                        actionLocked ||
+                        selectedCompraFornecedoresOrdem.length < 1 ||
+                        !defaultUsuarioId
+                      }
+                    >
+                      <ButtonContent active={pendingAction === ACTIONS.gerarOrdemCompra}>
+                        Gerar ordem de compra
+                      </ButtonContent>
+                    </button>
+                  </div>
+                </>
               ) : (
                 <EmptyState text="Nenhuma compra aprovada pendente de ordem." />
               )}

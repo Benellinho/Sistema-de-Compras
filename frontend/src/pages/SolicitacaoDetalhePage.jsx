@@ -5,7 +5,6 @@ import { SummaryCard } from '../components/ui/SummaryCard'
 import { useSistemaCompras } from '../context/comprasContext'
 import {
   itemSolicitacaoDescricao,
-  solicitacaoCentroCusto,
   solicitacaoItens,
   solicitacaoNecessidade,
   solicitacaoNumero,
@@ -43,7 +42,6 @@ export default function SolicitacaoDetalhePage() {
           rows={[
             ['Necessidade', solicitacaoNecessidade(solicitacao)],
             ['Urgencia', solicitacaoUrgencia(solicitacao) || '-'],
-            ['Centro de custo', solicitacaoCentroCusto(solicitacao) || '-'],
             ['Status', statusText(solicitacao.status)],
           ]}
         />

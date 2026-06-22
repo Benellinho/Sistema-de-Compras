@@ -717,6 +717,84 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.order-cost-center {
+  max-width: 360px;
+  margin-bottom: 16px;
+}
+
+.order-transfer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.order-transfer-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.order-transfer-panel.selected {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.order-transfer-heading,
+.order-transfer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.order-transfer-heading h3 {
+  font-size: 15px;
+}
+
+.order-transfer-heading span {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.order-transfer-heading button {
+  flex: 0 0 auto;
+}
+
+.order-transfer-list {
+  display: grid;
+  gap: 10px;
+}
+
+.order-transfer-item {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.order-transfer-item div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.order-transfer-item strong {
+  color: var(--text-strong);
+}
+
+.order-transfer-item span,
+.order-transfer-item small {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
 .quote-items,
 .response-history {
   display: grid;
@@ -934,6 +1012,7 @@ td {
   .split-layout,
   .action-grid,
   .form-grid,
+  .order-transfer-grid,
   .classification-item-row,
   .quote-item-row,
   .response-card {
@@ -985,6 +1064,17 @@ td {
   }
 
   .form-actions button {
+    width: 100%;
+  }
+
+  .order-transfer-heading,
+  .order-transfer-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .order-transfer-heading button,
+  .order-transfer-item button {
     width: 100%;
   }
 

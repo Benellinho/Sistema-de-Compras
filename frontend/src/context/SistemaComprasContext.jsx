@@ -6,6 +6,7 @@ import { SistemaComprasContext } from './comprasContext'
 import {
   ACTIONS,
   DEFAULT_APROVACAO_OBSERVACAO,
+  CENTROS_CUSTO_ORDEM_COMPRA,
   DEFAULT_ENVIO_OBSERVACOES,
   DEFAULT_RETORNO_OBSERVACOES,
   DEFAULT_RETORNO_PARCELAS,
@@ -70,7 +71,10 @@ export function SistemaComprasProvider({ children }) {
     solicitanteId: '',
     descricaoNecessidade: '',
     urgencia: DEFAULT_URGENCIA,
-    centroCusto: '',
+  })
+  const [ordemCompraForm, setOrdemCompraForm] = useState({
+    compraFornecedorIds: [],
+    centroCusto: CENTROS_CUSTO_ORDEM_COMPRA[0],
   })
   const [classificacaoForm, setClassificacaoForm] = useState({
     solicitacaoId: '',
@@ -266,29 +270,36 @@ export function SistemaComprasProvider({ children }) {
     [retornoCotacao.itens],
   )
 
-  const compraFornecedorElegivel = useMemo(() => {
+  const compraFornecedoresElegiveis = useMemo(() => {
     const ordensAtivas = new Set(
       ordensCompra
         .filter((ordem) => ordem.status === 'GERADA')
         .map((ordem) => Number(ordem.compra_fornecedor_id)),
     )
+    const elegiveis = []
 
     for (const compra of compras) {
       if (compra.status !== 'APROVADA') {
         continue
       }
 
-      const fornecedor = (compra.fornecedores || []).find(
-        (item) => !ordensAtivas.has(Number(item.id)),
-      )
-
-      if (fornecedor) {
-        return { compra, fornecedor }
+      for (const fornecedor of compra.fornecedores || []) {
+        if (!ordensAtivas.has(Number(fornecedor.id))) {
+          elegiveis.push({ compra, fornecedor })
+        }
       }
     }
 
-    return null
+    return elegiveis
   }, [compras, ordensCompra])
+  const compraFornecedorElegivel = compraFornecedoresElegiveis[0] || null
+  const selectedCompraFornecedoresOrdem = useMemo(
+    () =>
+      compraFornecedoresElegiveis.filter((item) =>
+        ordemCompraForm.compraFornecedorIds.includes(String(item.fornecedor.id)),
+      ),
+    [compraFornecedoresElegiveis, ordemCompraForm.compraFornecedorIds],
+  )
 
   const comprasPorId = useMemo(
     () => new Map(compras.map((compra) => [Number(compra.id), compra])),
@@ -420,7 +431,15 @@ export function SistemaComprasProvider({ children }) {
       solicitanteId: defaultUsuarioId,
       descricaoNecessidade: '',
       urgencia: DEFAULT_URGENCIA,
-      centroCusto: '',
+    })
+  }
+
+  function resetOrdemCompraForm() {
+    setOrdemCompraForm({
+      compraFornecedorIds: compraFornecedoresElegiveis[0]?.fornecedor?.id
+        ? [String(compraFornecedoresElegiveis[0].fornecedor.id)]
+        : [],
+      centroCusto: CENTROS_CUSTO_ORDEM_COMPRA[0],
     })
   }
 
@@ -538,6 +557,11 @@ export function SistemaComprasProvider({ children }) {
 
     if (tabId === 'cadastro-base') {
       resetCadastroBaseForms()
+      return
+    }
+
+    if (tabId === 'compras') {
+      resetOrdemCompraForm()
     }
   }
 
@@ -560,6 +584,8 @@ export function SistemaComprasProvider({ children }) {
     itensData,
     solicitacoesData,
     cotacoesData,
+    comprasData,
+    ordensData,
   }) {
     const nextUsuariosAtivos = usuariosData.filter(isActiveUsuario)
     const nextFornecedoresAtivos = fornecedoresData.filter(isActiveFornecedor)
@@ -582,6 +608,16 @@ export function SistemaComprasProvider({ children }) {
     const nextCotacoesParaAprovacao = nextCotacoesAbertas.filter((cotacao) =>
       (cotacao.fornecedores || []).some((fornecedor) => fornecedor.status === 'RESPONDIDO'),
     )
+    const nextOrdensAtivas = new Set(
+      ordensData
+        .filter((ordem) => ordem.status === 'GERADA')
+        .map((ordem) => Number(ordem.compra_fornecedor_id)),
+    )
+    const nextCompraFornecedorIdsElegiveis = comprasData
+      .filter((compra) => compra.status === 'APROVADA')
+      .flatMap((compra) => compra.fornecedores || [])
+      .filter((fornecedor) => !nextOrdensAtivas.has(Number(fornecedor.id)))
+      .map((fornecedor) => String(fornecedor.id))
 
     setDraft((current) => {
       const userIsValid = nextUsuariosAtivos.some(
@@ -591,6 +627,24 @@ export function SistemaComprasProvider({ children }) {
       return {
         ...current,
         solicitanteId: userIsValid ? current.solicitanteId : nextDefaultUsuarioId,
+      }
+    })
+
+    setOrdemCompraForm((current) => {
+      const compraFornecedorIds = current.compraFornecedorIds.filter((id) =>
+        nextCompraFornecedorIdsElegiveis.includes(String(id)),
+      )
+
+      return {
+        centroCusto: CENTROS_CUSTO_ORDEM_COMPRA.includes(current.centroCusto)
+          ? current.centroCusto
+          : CENTROS_CUSTO_ORDEM_COMPRA[0],
+        compraFornecedorIds:
+          compraFornecedorIds.length > 0
+            ? compraFornecedorIds
+            : nextCompraFornecedorIdsElegiveis[0]
+              ? [nextCompraFornecedorIdsElegiveis[0]]
+              : [],
       }
     })
 
@@ -792,6 +846,8 @@ export function SistemaComprasProvider({ children }) {
         itensData,
         solicitacoesData: solicitacoesDetalhadas,
         cotacoesData: cotacoesDetalhadas,
+        comprasData,
+        ordensData,
       })
 
       if (successMessage || !silent) {
@@ -847,7 +903,6 @@ export function SistemaComprasProvider({ children }) {
       try {
         const descricaoNecessidade = draft.descricaoNecessidade.trim()
         const urgencia = draft.urgencia.trim()
-        const centroCusto = draft.centroCusto.trim()
 
         if (!draft.solicitanteId) {
           throw new Error('Nenhum solicitante ativo encontrado.')
@@ -862,14 +917,12 @@ export function SistemaComprasProvider({ children }) {
           observacoes: buildSolicitacaoObservacoes({
             necessidade: descricaoNecessidade,
             urgencia,
-            centroCusto,
           }),
         })
 
         setDraft((current) => ({
           ...current,
           descricaoNecessidade: '',
-          centroCusto: '',
         }))
         await loadBackendData({
           silent: true,
@@ -949,7 +1002,6 @@ export function SistemaComprasProvider({ children }) {
               observacoes: buildSolicitacaoObservacoes({
                 necessidade: solicitacaoDiretaTexto,
                 urgencia: DEFAULT_URGENCIA,
-                centroCusto: '',
               }),
             })
           }
@@ -1270,20 +1322,30 @@ export function SistemaComprasProvider({ children }) {
       setActionFeedback('')
 
       try {
-        if (!compraFornecedorElegivel) {
-          throw new Error('Nao ha compra aprovada sem ordem ativa.')
+        if (selectedCompraFornecedoresOrdem.length < 1) {
+          throw new Error('Selecione ao menos uma ordem pendente para gerar.')
         }
 
-        await comprasApi.criarOrdemCompra({
-          compra_fornecedor_id: Number(compraFornecedorElegivel.fornecedor.id),
-          usuario_id: Number(defaultUsuarioId),
-          observacoes: 'Ordem gerada pelo prototipo.',
-        })
+        if (!CENTROS_CUSTO_ORDEM_COMPRA.includes(ordemCompraForm.centroCusto)) {
+          throw new Error('Selecione um centro de custo valido.')
+        }
+
+        for (const item of selectedCompraFornecedoresOrdem) {
+          await comprasApi.criarOrdemCompra({
+            compra_fornecedor_id: Number(item.fornecedor.id),
+            usuario_id: Number(defaultUsuarioId),
+            observacoes: `Centro de custo: ${ordemCompraForm.centroCusto}. Ordem gerada pelo prototipo.`,
+          })
+        }
 
         await loadBackendData({
           silent: true,
-          successMessage: `Solicitacao N° ${compraNumero(compraFornecedorElegivel.compra)} gerada no backend.`,
+          successMessage: `${selectedCompraFornecedoresOrdem.length} ordem(ns) de compra gerada(s) para ${ordemCompraForm.centroCusto}.`,
         })
+        setOrdemCompraForm((current) => ({
+          ...current,
+          compraFornecedorIds: [],
+        }))
       } catch (error) {
         setActionFeedback(`Nao foi possivel gerar ordem de compra: ${error.message}`)
       }
@@ -1500,6 +1562,7 @@ export function SistemaComprasProvider({ children }) {
     envioCotacao,
     retornoCotacao,
     aprovacaoCotacao,
+    ordemCompraForm,
     confirmarRecusaCotacao,
     fornecedorForm,
     contatoForm,
@@ -1533,6 +1596,8 @@ export function SistemaComprasProvider({ children }) {
     respostasDaCotacao,
     retornoTotal,
     compraFornecedorElegivel,
+    compraFornecedoresElegiveis,
+    selectedCompraFornecedoresOrdem,
     comprasPorId,
     metrics,
     solicitacaoRows,
@@ -1544,6 +1609,7 @@ export function SistemaComprasProvider({ children }) {
     setEnvioCotacao,
     setRetornoCotacao,
     setAprovacaoCotacao,
+    setOrdemCompraForm,
     setConfirmarRecusaCotacao,
     setFornecedorForm,
     setContatoForm,

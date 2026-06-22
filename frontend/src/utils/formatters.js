@@ -138,15 +138,13 @@ export function solicitacaoCotacaoOption(solicitacao) {
     solicitacaoNumero(solicitacao),
     solicitacaoSolicitante(solicitacao),
     solicitacaoUrgencia(solicitacao),
-    solicitacaoCentroCusto(solicitacao),
   ])
 }
 
-export function buildSolicitacaoObservacoes({ necessidade, urgencia, centroCusto }) {
+export function buildSolicitacaoObservacoes({ necessidade, urgencia }) {
   return JSON.stringify({
     necessidade,
     urgencia,
-    centro_custo: centroCusto,
   })
 }
 
@@ -239,14 +237,15 @@ export function cotacaoMelhorValor(cotacao) {
 
 export function compraTotal(compra) {
   return (compra?.fornecedores || []).reduce(
-    (sum, fornecedor) =>
-      sum +
-      (fornecedor.itens || []).reduce(
-        (itemSum, item) =>
-          itemSum +
-          Number(item.valor_total || Number(item.quantidade_pedida || 0) * Number(item.valor_unitario || 0)),
-        0,
-      ),
+    (sum, fornecedor) => sum + compraFornecedorTotal(fornecedor),
+    0,
+  )
+}
+
+export function compraFornecedorTotal(fornecedor) {
+  return (fornecedor?.itens || []).reduce(
+    (sum, item) =>
+      sum + Number(item.valor_total || Number(item.quantidade_pedida || 0) * Number(item.valor_unitario || 0)),
     0,
   )
 }
