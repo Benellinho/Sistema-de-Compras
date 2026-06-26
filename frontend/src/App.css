@@ -677,6 +677,62 @@ button:disabled {
   font-size: 18px;
 }
 
+.approval-item-list {
+  display: grid;
+  gap: 10px;
+}
+
+.approval-item-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: 0;
+  padding: 12px;
+  text-align: left;
+  background: var(--surface);
+}
+
+.approval-item-card.selected,
+.approval-supplier-card.selected {
+  border-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.approval-item-card strong {
+  color: var(--text-strong);
+}
+
+.approval-item-card span,
+.approval-item-card small {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.approval-supplier-card {
+  align-items: flex-start;
+}
+
+.approval-supplier-values {
+  min-width: 130px;
+  display: grid;
+  gap: 3px;
+  text-align: right;
+}
+
+.approval-supplier-values small {
+  color: var(--text-soft);
+}
+
+.approval-supplier-values strong {
+  color: var(--text-strong);
+}
+
+.approval-summary-card small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-soft);
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;

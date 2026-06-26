@@ -29,6 +29,7 @@ export const sistemaComprasApi = {
   buscarCotacao: cotacoesApi.buscar,
   criarCotacao: cotacoesApi.criar,
   atualizarCotacaoStatus: cotacoesApi.atualizarStatus,
+  aprovarCotacaoPorItens: cotacoesApi.aprovarPorItens,
   adicionarFornecedorCotacao: cotacoesApi.adicionarFornecedor,
   marcarEnvioFornecedorCotacao: cotacoesApi.marcarEnvioFornecedor,
   atualizarFornecedorCotacaoStatus: cotacoesApi.atualizarFornecedorStatus,

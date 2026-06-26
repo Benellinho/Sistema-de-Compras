@@ -103,6 +103,8 @@ export function SistemaComprasProvider({ children }) {
   const [aprovacaoCotacao, setAprovacaoCotacao] = useState({
     cotacaoId: '',
     fornecedorId: '',
+    solicitacaoItemId: '',
+    itemFornecedorIds: {},
     usuarioId: '',
     justificativaAprovacao: '',
     justificativaRecusa: '',
@@ -247,14 +249,70 @@ export function SistemaComprasProvider({ children }) {
     [selectedAprovacaoCotacao, solicitacoes],
   )
 
+  const itensAprovacaoCotacao = useMemo(
+    () => solicitacaoItensCatalogados(selectedAprovacaoSolicitacao),
+    [selectedAprovacaoSolicitacao],
+  )
+
+  const selectedAprovacaoItem = useMemo(
+    () =>
+      itensAprovacaoCotacao.find(
+        (item) => Number(item.id) === Number(aprovacaoCotacao.solicitacaoItemId),
+      ) || itensAprovacaoCotacao[0],
+    [aprovacaoCotacao.solicitacaoItemId, itensAprovacaoCotacao],
+  )
+
+  const fornecedoresAprovacaoItem = useMemo(
+    () =>
+      (selectedAprovacaoCotacao?.fornecedores || [])
+        .filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
+        .map((fornecedor) => ({
+          fornecedor,
+          respostaItem: (fornecedor.itens || []).find(
+            (item) =>
+              Number(item.solicitacao_item_id) === Number(selectedAprovacaoItem?.id) &&
+              item.status_item === 'DISPONIVEL',
+          ),
+        }))
+        .filter((item) => item.respostaItem),
+    [selectedAprovacaoCotacao, selectedAprovacaoItem],
+  )
+
   const selectedAprovacaoFornecedor = useMemo(
     () =>
-      (selectedAprovacaoCotacao?.fornecedores || []).find(
-        (fornecedor) =>
-          Number(fornecedor.fornecedor_id) === Number(aprovacaoCotacao.fornecedorId) &&
-          fornecedor.status === 'RESPONDIDO',
+      fornecedoresAprovacaoItem.find(
+        ({ fornecedor }) =>
+          Number(fornecedor.fornecedor_id) === Number(aprovacaoCotacao.fornecedorId),
       ),
-    [aprovacaoCotacao.fornecedorId, selectedAprovacaoCotacao],
+    [aprovacaoCotacao.fornecedorId, fornecedoresAprovacaoItem],
+  )
+
+  const escolhasAprovacaoItens = useMemo(
+    () =>
+      itensAprovacaoCotacao.map((item) => {
+        const fornecedorId = aprovacaoCotacao.itemFornecedorIds[String(item.id)]
+        const fornecedor = (selectedAprovacaoCotacao?.fornecedores || []).find(
+          (cotacaoFornecedor) =>
+            Number(cotacaoFornecedor.fornecedor_id) === Number(fornecedorId),
+        )
+        const respostaItem = (fornecedor?.itens || []).find(
+          (resposta) =>
+            Number(resposta.solicitacao_item_id) === Number(item.id) &&
+            resposta.status_item === 'DISPONIVEL',
+        )
+
+        return {
+          item,
+          fornecedor: respostaItem ? fornecedor : null,
+          respostaItem,
+        }
+      }),
+    [aprovacaoCotacao.itemFornecedorIds, itensAprovacaoCotacao, selectedAprovacaoCotacao],
+  )
+
+  const aprovacaoItensPendentes = useMemo(
+    () => escolhasAprovacaoItens.filter((item) => !item.fornecedor),
+    [escolhasAprovacaoItens],
   )
 
   const respostasDaCotacao = useMemo(
@@ -729,15 +787,31 @@ export function SistemaComprasProvider({ children }) {
       const fornecedoresRespondidos = (cotacaoAtual?.fornecedores || []).filter(
         (fornecedor) => fornecedor.status === 'RESPONDIDO',
       )
-      const fornecedorAtual =
-        fornecedoresRespondidos.find(
-          (fornecedor) => Number(fornecedor.fornecedor_id) === Number(current.fornecedorId),
-        ) || fornecedoresRespondidos[0]
+      const solicitacaoAtual = solicitacoesData.find(
+        (solicitacao) => Number(solicitacao.id) === Number(cotacaoAtual?.solicitacao_id),
+      )
+      const itensAprovacao = solicitacaoItensCatalogados(solicitacaoAtual)
+      const itemAtual =
+        itensAprovacao.find((item) => Number(item.id) === Number(current.solicitacaoItemId)) ||
+        itensAprovacao[0]
+      const itemIdsValidos = new Set(itensAprovacao.map((item) => String(item.id)))
+      const fornecedorIdsRespondidos = new Set(
+        fornecedoresRespondidos.map((fornecedor) => String(fornecedor.fornecedor_id)),
+      )
+      const itemFornecedorIds = Object.fromEntries(
+        Object.entries(current.itemFornecedorIds || {}).filter(
+          ([itemId, fornecedorId]) =>
+            itemIdsValidos.has(String(itemId)) &&
+            fornecedorIdsRespondidos.has(String(fornecedorId)),
+        ),
+      )
 
       return {
         ...current,
         cotacaoId: cotacaoAtual?.id ? String(cotacaoAtual.id) : '',
-        fornecedorId: fornecedorAtual?.fornecedor_id ? String(fornecedorAtual.fornecedor_id) : '',
+        fornecedorId: '',
+        solicitacaoItemId: itemAtual?.id ? String(itemAtual.id) : '',
+        itemFornecedorIds,
         usuarioId:
           current.usuarioId &&
           nextUsuariosAtivos.some((usuario) => Number(usuario.id) === Number(current.usuarioId))
@@ -1252,10 +1326,6 @@ export function SistemaComprasProvider({ children }) {
           return
         }
 
-        if (!selectedAprovacaoFornecedor) {
-          throw new Error('Selecione um fornecedor com resposta registrada.')
-        }
-
         if (!aprovacaoCotacao.justificativaAprovacao) {
           throw new Error('Selecione uma justificativa para aceitar a cotacao.')
         }
@@ -1264,45 +1334,22 @@ export function SistemaComprasProvider({ children }) {
           throw new Error('Informe um comentario para a justificativa Outro.')
         }
 
-        await comprasApi.atualizarCotacaoStatus(selectedAprovacaoCotacao.id, {
-          status: 'APROVADA',
-          usuario_id: Number(usuarioAprovadorId),
-          observacao,
-        })
-
-        const compra = await comprasApi.criarCompra({
-          cotacao_id: selectedAprovacaoCotacao.id,
-          criado_por: Number(usuarioAprovadorId),
-          observacoes: observacao,
-        })
-        const fornecedorCompra = await comprasApi.adicionarFornecedorCompra(compra.id, {
-          fornecedor_id: Number(selectedAprovacaoFornecedor.fornecedor_id),
-          usuario_id: Number(usuarioAprovadorId),
-          justificativas: [aprovacaoCotacao.justificativaAprovacao],
-          justificativa_texto: observacao,
-          prazo_entrega: selectedAprovacaoFornecedor.prazo_entrega,
-          forma_pagamento: selectedAprovacaoFornecedor.forma_pagamento,
-        })
-
-        for (const item of selectedAprovacaoFornecedor.itens || []) {
-          if (item.status_item !== 'DISPONIVEL') {
-            continue
-          }
-
-          await comprasApi.adicionarItemCompra(compra.id, fornecedorCompra.id, {
-            solicitacao_item_id: Number(item.solicitacao_item_id),
-            quantidade_pedida: Number(item.quantidade || 0),
-            usuario_id: Number(usuarioAprovadorId),
-          })
+        if (itensAprovacaoCotacao.length < 1) {
+          throw new Error('Cotacao sem itens catalogados para aprovar.')
         }
 
-        await comprasApi.enviarCompraAprovacao(compra.id, {
+        if (aprovacaoItensPendentes.length > 0) {
+          throw new Error('Escolha um fornecedor para todos os itens antes de aceitar.')
+        }
+
+        const compra = await comprasApi.aprovarCotacaoPorItens(selectedAprovacaoCotacao.id, {
           usuario_id: Number(usuarioAprovadorId),
-          observacao: 'Compra enviada para aprovacao pelo prototipo.',
-        })
-        await comprasApi.aprovarCompra(compra.id, {
-          aprovador_id: Number(usuarioAprovadorId),
           observacao,
+          justificativas: [aprovacaoCotacao.justificativaAprovacao],
+          itens: itensAprovacaoCotacao.map((item) => ({
+            solicitacao_item_id: Number(item.id),
+            fornecedor_id: Number(aprovacaoCotacao.itemFornecedorIds[String(item.id)]),
+          })),
         })
 
         await loadBackendData({
@@ -1504,14 +1551,17 @@ export function SistemaComprasProvider({ children }) {
 
   function handleAprovacaoCotacaoChange(cotacaoId) {
     const cotacao = cotacoes.find((item) => Number(item.id) === Number(cotacaoId))
-    const firstFornecedor = (cotacao?.fornecedores || []).find(
-      (fornecedor) => fornecedor.status === 'RESPONDIDO',
+    const solicitacao = solicitacoes.find(
+      (item) => Number(item.id) === Number(cotacao?.solicitacao_id),
     )
+    const firstItem = solicitacaoItensCatalogados(solicitacao)[0]
 
     setAprovacaoCotacao((current) => ({
       ...current,
       cotacaoId,
-      fornecedorId: firstFornecedor?.fornecedor_id ? String(firstFornecedor.fornecedor_id) : '',
+      fornecedorId: '',
+      solicitacaoItemId: firstItem?.id ? String(firstItem.id) : '',
+      itemFornecedorIds: {},
       justificativaAprovacao: '',
       justificativaRecusa: '',
       comentario: DEFAULT_APROVACAO_OBSERVACAO,
@@ -1592,7 +1642,12 @@ export function SistemaComprasProvider({ children }) {
     selectedRetornoFornecedor,
     selectedAprovacaoCotacao,
     selectedAprovacaoSolicitacao,
+    itensAprovacaoCotacao,
+    selectedAprovacaoItem,
+    fornecedoresAprovacaoItem,
     selectedAprovacaoFornecedor,
+    escolhasAprovacaoItens,
+    aprovacaoItensPendentes,
     respostasDaCotacao,
     retornoTotal,
     compraFornecedorElegivel,

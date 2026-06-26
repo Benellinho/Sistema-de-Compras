@@ -7,6 +7,8 @@ export const cotacoesApi = {
   criar: (data) => jsonRequest(API_ROUTES.cotacoes, 'POST', data),
   atualizarStatus: (cotacaoId, data) =>
     jsonRequest(`${API_ROUTES.cotacoes}/${cotacaoId}/status`, 'PATCH', data),
+  aprovarPorItens: (cotacaoId, data) =>
+    jsonRequest(`${API_ROUTES.cotacoes}/${cotacaoId}/aprovacao-itens`, 'POST', data),
   adicionarFornecedor: (cotacaoId, data) =>
     jsonRequest(`${API_ROUTES.cotacoes}/${cotacaoId}/fornecedores`, 'POST', data),
   marcarEnvioFornecedor: (cotacaoId, cotacaoFornecedorId, data) =>

@@ -3,10 +3,13 @@ import {
   createNotFoundError,
   createValidationError,
   required,
+  statusEncerrados as statusCotacaoEncerrados,
   validateCotacaoExiste,
   validateFornecedorExiste,
   validateUsuarioExiste
 } from '../../cotacoes/cotacoes/cotacoes.service.js';
+import cotacoesService from '../../cotacoes/cotacoes/cotacoes.service.js';
+import solicitacoesRepository from '../../solicitacoes/solicitacoes/solicitacoes.repository.js';
 import comprasRepository from './compras.repository.js';
 
 const statusValidos = new Set(['EM_MONTAGEM', 'AGUARDANDO_APROVACAO', 'APROVADA', 'CANCELADA']);
@@ -226,6 +229,134 @@ async function cancelar(id, data = {}) {
   });
 }
 
+async function aprovarCotacaoPorItens(cotacaoId, data = {}) {
+  if (!required(data?.usuario_id)) {
+    throw createValidationError('Usuario e obrigatorio para aprovar cotacao por item.');
+  }
+
+  if (!Array.isArray(data?.itens) || data.itens.length < 1) {
+    throw createValidationError('Informe os itens aprovados da cotacao.');
+  }
+
+  const cotacao = await validateCotacaoExiste(cotacaoId);
+
+  if (statusCotacaoEncerrados.has(cotacao.status)) {
+    throw createValidationError('Cotacao encerrada nao permite aprovacao por item.');
+  }
+
+  await validateUsuarioExiste(data.usuario_id);
+
+  const compraExistente = await comprasRepository.findByCotacaoId(cotacaoId);
+
+  if (compraExistente) {
+    throw createConflictError('Cotacao ja possui compra criada.');
+  }
+
+  const justificativas = validateJustificativas(data?.justificativas, data?.observacao);
+  const itensSolicitacao = (await solicitacoesRepository.findItensBySolicitacaoId(cotacao.solicitacao_id))
+    .filter((item) => item.item_id !== null && item.item_id !== undefined);
+  const itensPorId = new Map(itensSolicitacao.map((item) => [Number(item.id), item]));
+  const escolhas = normalizarEscolhasItens(data.itens);
+
+  validarCoberturaItens(itensSolicitacao, escolhas);
+
+  const escolhasValidadas = [];
+
+  for (const escolha of escolhas) {
+    const itemSolicitacao = itensPorId.get(Number(escolha.solicitacao_item_id));
+    const fornecedorCotacao = await comprasRepository.findCotacaoFornecedor(
+      cotacao.id,
+      escolha.fornecedor_id
+    );
+
+    if (!fornecedorCotacao) {
+      throw createValidationError('Fornecedor nao participou da cotacao da compra.');
+    }
+
+    if (fornecedorCotacao.status !== 'RESPONDIDO') {
+      throw createValidationError('Fornecedor precisa ter resposta registrada na cotacao.');
+    }
+
+    const respostaCotacao = await comprasRepository.findCotacaoRespostaItem(
+      cotacao.id,
+      escolha.fornecedor_id,
+      escolha.solicitacao_item_id
+    );
+
+    if (!respostaCotacao) {
+      throw createValidationError('Fornecedor nao possui resposta para um item aprovado.');
+    }
+
+    if (respostaCotacao.status_item !== 'DISPONIVEL') {
+      throw createValidationError('Item indisponivel na cotacao nao pode ser comprado.');
+    }
+
+    if (!required(respostaCotacao.valor_unitario)) {
+      throw createValidationError('Item sem valor cotado nao pode ser comprado.');
+    }
+
+    const quantidadePedida = Number(itemSolicitacao.quantidade);
+
+    if (!Number.isFinite(quantidadePedida) || quantidadePedida <= 0) {
+      throw createValidationError('Quantidade solicitada invalida para item aprovado.');
+    }
+
+    escolhasValidadas.push({
+      ...escolha,
+      quantidade_pedida: quantidadePedida,
+      fornecedorCotacao
+    });
+  }
+
+  const observacao = data?.observacao ?? 'Aprovacao de cotacao por item.';
+
+  await cotacoesService.updateStatus(cotacao.id, {
+    status: 'APROVADA',
+    usuario_id: data.usuario_id,
+    observacao
+  });
+
+  const compra = await create({
+    cotacao_id: cotacao.id,
+    criado_por: data.usuario_id,
+    observacoes: observacao
+  });
+  const fornecedoresCompra = new Map();
+
+  for (const escolha of escolhasValidadas) {
+    const fornecedorKey = Number(escolha.fornecedor_id);
+    let fornecedorCompra = fornecedoresCompra.get(fornecedorKey);
+
+    if (!fornecedorCompra) {
+      fornecedorCompra = await addFornecedor(compra.id, {
+        fornecedor_id: escolha.fornecedor_id,
+        usuario_id: data.usuario_id,
+        justificativas,
+        justificativa_texto: observacao,
+        prazo_entrega: escolha.fornecedorCotacao.prazo_entrega,
+        forma_pagamento: escolha.fornecedorCotacao.forma_pagamento
+      });
+      fornecedoresCompra.set(fornecedorKey, fornecedorCompra);
+    }
+
+    await addItem(compra.id, fornecedorCompra.id, {
+      solicitacao_item_id: escolha.solicitacao_item_id,
+      quantidade_pedida: escolha.quantidade_pedida,
+      usuario_id: data.usuario_id
+    });
+  }
+
+  await enviarAprovacao(compra.id, {
+    usuario_id: data.usuario_id,
+    observacao: 'Compra enviada para aprovacao por aprovacao de cotacao por item.'
+  });
+
+  return aprovar(compra.id, {
+    aprovador_id: data.usuario_id,
+    observacao
+  });
+}
+
 async function validateCompraExiste(id) {
   const compra = await comprasRepository.findById(id);
 
@@ -249,6 +380,55 @@ async function validateFornecedorDaCompra(compraId, compraFornecedorId) {
 function validateCompraEmMontagem(compra) {
   if (compra.status !== 'EM_MONTAGEM') {
     throw createValidationError('Compra nao permite alteracoes neste status.');
+  }
+}
+
+function normalizarEscolhasItens(itens = []) {
+  const idsUsados = new Set();
+
+  return itens.map((item) => {
+    if (!required(item?.solicitacao_item_id)) {
+      throw createValidationError('Item da solicitacao e obrigatorio na aprovacao por item.');
+    }
+
+    if (!required(item?.fornecedor_id)) {
+      throw createValidationError('Fornecedor e obrigatorio para cada item aprovado.');
+    }
+
+    const solicitacaoItemId = Number(item.solicitacao_item_id);
+
+    if (idsUsados.has(solicitacaoItemId)) {
+      throw createValidationError('Cada item da solicitacao deve ser aprovado apenas uma vez.');
+    }
+
+    idsUsados.add(solicitacaoItemId);
+
+    return {
+      solicitacao_item_id: solicitacaoItemId,
+      fornecedor_id: Number(item.fornecedor_id)
+    };
+  });
+}
+
+function validarCoberturaItens(itensSolicitacao, escolhas) {
+  if (itensSolicitacao.length < 1) {
+    throw createValidationError('Cotacao precisa ter ao menos um item catalogado para aprovacao.');
+  }
+
+  const escolhasPorItem = new Set(escolhas.map((item) => Number(item.solicitacao_item_id)));
+
+  for (const item of itensSolicitacao) {
+    if (!escolhasPorItem.has(Number(item.id))) {
+      throw createValidationError('Todos os itens catalogados precisam ter fornecedor escolhido.');
+    }
+  }
+
+  const itensValidos = new Set(itensSolicitacao.map((item) => Number(item.id)));
+
+  for (const escolha of escolhas) {
+    if (!itensValidos.has(Number(escolha.solicitacao_item_id))) {
+      throw createValidationError('Item aprovado nao pertence a cotacao informada.');
+    }
   }
 }
 
@@ -298,5 +478,6 @@ export default {
   addItem,
   enviarAprovacao,
   aprovar,
+  aprovarCotacaoPorItens,
   cancelar
 };

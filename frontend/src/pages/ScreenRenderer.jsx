@@ -83,7 +83,11 @@ export function ScreenRenderer({ screenId }) {
     selectedRetornoFornecedor,
     selectedAprovacaoCotacao,
     selectedAprovacaoSolicitacao,
-    selectedAprovacaoFornecedor,
+    itensAprovacaoCotacao,
+    selectedAprovacaoItem,
+    fornecedoresAprovacaoItem,
+    escolhasAprovacaoItens,
+    aprovacaoItensPendentes,
     respostasDaCotacao,
     retornoTotal,
     compraFornecedoresElegiveis,
@@ -987,14 +991,14 @@ export function ScreenRenderer({ screenId }) {
         {activeTab === 'aprovar-cotacao' && (
           <ActionScreen
             title="Aprovar cotacao"
-            subtitle="Escolhe o fornecedor pelo comparativo e cria a compra"
-            endpoint="PATCH /cotacoes/:id/status"
+            subtitle="Escolhe o fornecedor por item e cria a compra"
+            endpoint="POST /cotacoes/:id/aprovacao-itens"
           >
             <form className="action-form" onSubmit={(event) => event.preventDefault()}>
               <div className="action-grid">
                 <section className="section-block solicitation-context">
                   <div className="section-heading">
-                    <h2>Cotacao em aprovacao</h2>
+                    <h2>Cotacao e itens</h2>
                     <span>{cotacoesParaAprovacao.length} com resposta</span>
                   </div>
                   <label>
@@ -1012,18 +1016,49 @@ export function ScreenRenderer({ screenId }) {
                   </label>
                   {selectedAprovacaoSolicitacao ? (
                     <>
-                      <div className="linked-request-title">
-                        <strong>{solicitacaoNumero(selectedAprovacaoSolicitacao)}</strong>
-                        <StatusBadge value={selectedAprovacaoSolicitacao.status} />
-                      </div>
-                      <SummaryCard
-                        rows={[
-                          ['Necessidade', solicitacaoPrincipalItem(selectedAprovacaoSolicitacao)],
-                          ['Itens', solicitacaoResumoItens(selectedAprovacaoSolicitacao)],
-                          ['Solicitacao', cotacaoNumero(selectedAprovacaoCotacao)],
-                          ['Rodada', selectedAprovacaoCotacao?.numero_rodada || 1],
-                        ]}
-                      />
+                    <br/>
+                      {itensAprovacaoCotacao.length > 0 ? (
+                        <div className="approval-item-list">
+                          {itensAprovacaoCotacao.map((item) => {
+                            const escolha = escolhasAprovacaoItens.find(
+                              ({ item: escolhaItem }) => Number(escolhaItem.id) === Number(item.id),
+                            )
+                            const isSelected =
+                              Number(selectedAprovacaoItem?.id) === Number(item.id)
+                            const unidade = item.unidade_snapshot || item.unidade || ''
+
+                            return (
+                              <button
+                                type="button"
+                                className={`approval-item-card${isSelected ? ' selected' : ''}`}
+                                key={item.id}
+                                disabled={actionLocked}
+                                onClick={() =>
+                                  setAprovacaoCotacao((current) => ({
+                                    ...current,
+                                    solicitacaoItemId: String(item.id),
+                                    fornecedorId: escolha?.fornecedor?.fornecedor_id
+                                      ? String(escolha.fornecedor.fornecedor_id)
+                                      : '',
+                                  }))
+                                }
+                              >
+                                <strong>{itemSolicitacaoDescricao(item)}</strong>
+                                <span>
+                                  Solicitado: {Number(item.quantidade || 0)} {unidade}
+                                </span>
+                                <small>
+                                  {escolha?.fornecedor
+                                    ? `Selecionado: ${fornecedorNome(escolha.fornecedor)}`
+                                    : 'Pendente de fornecedor'}
+                                </small>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <EmptyState text="A cotacao nao tem itens catalogados para aprovar." />
+                      )}
                     </>
                   ) : (
                     <EmptyState text="Nao ha cotacao respondida para aprovar." />
@@ -1032,42 +1067,135 @@ export function ScreenRenderer({ screenId }) {
 
                 <section className="section-block comparison-block">
                   <div className="section-heading">
-                    <h2>Comparativo de fornecedores</h2>
-                    <span>respostas reais da cotacao</span>
+                    <h2>Fornecedores do item</h2>
+                    <span>
+                      {selectedAprovacaoItem
+                        ? itemSolicitacaoDescricao(selectedAprovacaoItem)
+                        : 'selecione um item'}
+                    </span>
                   </div>
-                  <div className="supplier-comparison">
-                    {(selectedAprovacaoCotacao?.fornecedores || [])
-                      .filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
-                      .map((fornecedor) => (
-                        <label className="supplier-card" key={fornecedor.id}>
-                          <input
-                            type="radio"
-                            name="fornecedor-vencedor"
-                            checked={
-                              Number(aprovacaoCotacao.fornecedorId) ===
-                              Number(fornecedor.fornecedor_id)
-                            }
-                            onChange={() => {
-                              setAprovacaoCotacao((current) => ({
-                                ...current,
-                                fornecedorId: String(fornecedor.fornecedor_id),
-                              }))
-                              setConfirmarRecusaCotacao(false)
-                            }}
-                          />
-                          <span>
-                            <strong>{fornecedorNome(fornecedor)}</strong>
-                            <small>
-                              {fornecedor.prazo_entrega || 'Prazo nao informado'} |{' '}
-                              {fornecedor.forma_pagamento || 'Pagamento nao informado'}
-                            </small>
-                          </span>
-                          <b>{formatCurrency(cotacaoFornecedorTotal(fornecedor))}</b>
-                        </label>
-                      ))}
-                  </div>
+                  {selectedAprovacaoItem ? (
+                    fornecedoresAprovacaoItem.length > 0 ? (
+                      <div className="supplier-comparison">
+                        {fornecedoresAprovacaoItem.map(({ fornecedor, respostaItem }) => {
+                          const fornecedorSelecionado =
+                            Number(
+                              aprovacaoCotacao.itemFornecedorIds[
+                                String(selectedAprovacaoItem.id)
+                              ],
+                            ) === Number(fornecedor.fornecedor_id)
+                          const quantidade = Number(
+                            selectedAprovacaoItem.quantidade || respostaItem.quantidade || 0,
+                          )
+                          const unidade =
+                            selectedAprovacaoItem.unidade_snapshot ||
+                            selectedAprovacaoItem.unidade ||
+                            respostaItem.unidade ||
+                            ''
+                          const valorUnitario = Number(respostaItem.valor_unitario || 0)
+                          const valorTotal = Number(
+                            respostaItem.valor_total || quantidade * valorUnitario,
+                          )
+
+                          return (
+                            <label
+                              className={`supplier-card approval-supplier-card${
+                                fornecedorSelecionado ? ' selected' : ''
+                              }`}
+                              key={fornecedor.id}
+                            >
+                              <input
+                                type="radio"
+                                name={`fornecedor-item-${selectedAprovacaoItem.id}`}
+                                checked={fornecedorSelecionado}
+                                onChange={() => {
+                                  setAprovacaoCotacao((current) => ({
+                                    ...current,
+                                    fornecedorId: String(fornecedor.fornecedor_id),
+                                    itemFornecedorIds: {
+                                      ...current.itemFornecedorIds,
+                                      [String(selectedAprovacaoItem.id)]: String(
+                                        fornecedor.fornecedor_id,
+                                      ),
+                                    },
+                                  }))
+                                  setConfirmarRecusaCotacao(false)
+                                }}
+                              />
+                              <span>
+                                <strong>{fornecedorNome(fornecedor)}</strong>
+                                <small>
+                                  {fornecedor.prazo_entrega || 'Prazo nao informado'} |{' '}
+                                  {fornecedor.forma_pagamento || 'Pagamento nao informado'}
+                                </small>
+                                {respostaItem.observacoes && (
+                                  <small>{respostaItem.observacoes}</small>
+                                )}
+                              </span>
+                              <div className="approval-supplier-values">
+                                <small>
+                                  {quantidade} {unidade}
+                                </small>
+                                <b>{formatCurrency(valorUnitario)} un.</b>
+                                <strong>{formatCurrency(valorTotal)}</strong>
+                              </div>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <EmptyState text="Nenhum fornecedor respondeu este item como disponivel." />
+                    )
+                  ) : (
+                    <EmptyState text="Selecione um item da solicitacao." />
+                  )}
                 </section>
               </div>
+
+              <section className="section-block">
+                <div className="section-heading">
+                  <h2>Itens para aprovar</h2>
+                  <span>
+                    {itensAprovacaoCotacao.length - aprovacaoItensPendentes.length}/
+                    {itensAprovacaoCotacao.length} selecionados
+                  </span>
+                </div>
+                {escolhasAprovacaoItens.length > 0 ? (
+                  <div className="response-history">
+                    {escolhasAprovacaoItens.map(({ item, fornecedor, respostaItem }) => {
+                      const quantidade = Number(item.quantidade || respostaItem?.quantidade || 0)
+                      const unidade =
+                        item.unidade_snapshot || item.unidade || respostaItem?.unidade || ''
+                      const valorUnitario = Number(respostaItem?.valor_unitario || 0)
+                      const valorTotal = respostaItem
+                        ? Number(respostaItem.valor_total || quantidade * valorUnitario)
+                        : 0
+
+                      return (
+                        <article className="response-card approval-summary-card" key={item.id}>
+                          <div>
+                            <StatusBadge value={fornecedor ? 'SELECIONADO' : 'PENDENTE'} />
+                            <span>
+                              <strong>{itemSolicitacaoDescricao(item)}</strong>
+                              <small>
+                                {fornecedor
+                                  ? fornecedorNome(fornecedor)
+                                  : 'Aguardando escolha do fornecedor'}
+                              </small>
+                            </span>
+                          </div>
+                          <span>
+                            {quantidade} {unidade} | {formatCurrency(valorUnitario)} un.
+                          </span>
+                          <b>{formatCurrency(valorTotal)}</b>
+                        </article>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState text="Selecione uma cotacao com itens para aprovar." />
+                )}
+              </section>
 
               <section className="section-block">
                 <div className="section-heading">
@@ -1076,7 +1204,7 @@ export function ScreenRenderer({ screenId }) {
                 </div>
                 <div className="action-grid">
                   <label>
-                    Justificativa do aceite
+                    Justificativa do aceite por fornecedor
                     <select
                       value={aprovacaoCotacao.justificativaAprovacao}
                       onChange={(event) =>
@@ -1149,7 +1277,8 @@ export function ScreenRenderer({ screenId }) {
                       actionLocked ||
                       !selectedAprovacaoCotacao ||
                       !(aprovacaoCotacao.usuarioId || defaultUsuarioId) ||
-                      !selectedAprovacaoFornecedor ||
+                      itensAprovacaoCotacao.length < 1 ||
+                      aprovacaoItensPendentes.length > 0 ||
                       !aprovacaoCotacao.justificativaAprovacao ||
                       (aprovacaoCotacao.justificativaAprovacao === 'OUTRO' &&
                         !aprovacaoCotacao.comentario.trim())

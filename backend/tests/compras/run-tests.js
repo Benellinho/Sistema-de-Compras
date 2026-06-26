@@ -1,5 +1,6 @@
 import { getDatabase } from '../../src/db/connection.js';
 import { printError, printGroup, printSuccess, printSummary } from '../helpers/testLogger.js';
+import testAprovarCotacaoPorItens from './compras/aprovar-cotacao-por-itens.test.js';
 import testAprovarCompra from './compras/aprovar-compra.test.js';
 import testBloquearAprovacaoCompraVazia from './compras/bloquear-aprovacao-compra-vazia.test.js';
 import testBloquearCotacaoNaoAprovada from './compras/bloquear-cotacao-nao-aprovada.test.js';
@@ -28,6 +29,7 @@ const tests = [
       ['bloquear item indisponivel', testBloquearItemIndisponivel],
       ['validar justificativas', testValidarJustificativas],
       ['sinalizar inconsistencia quantidade', testSinalizarInconsistenciaQuantidade],
+      ['aprovar cotacao por itens', testAprovarCotacaoPorItens],
       ['bloquear aprovacao compra vazia', testBloquearAprovacaoCompraVazia],
       ['aprovar compra', testAprovarCompra],
       ['cancelar compra', testCancelarCompra],

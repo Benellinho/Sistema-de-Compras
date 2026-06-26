@@ -11,7 +11,13 @@ import {
 } from '../fornecedores/fornecedores-cotacao.controller.js';
 import { getSolicitacaoOrcamentoPdf } from '../pdf/cotacoes-pdf.controller.js';
 import { registrarRespostaCotacao } from '../respostas/respostas-cotacao.controller.js';
-import { createCotacao, getCotacao, listCotacoes, updateCotacaoStatus } from './cotacoes.controller.js';
+import {
+  aprovarCotacaoPorItens,
+  createCotacao,
+  getCotacao,
+  listCotacoes,
+  updateCotacaoStatus
+} from './cotacoes.controller.js';
 
 const router = Router();
 
@@ -19,6 +25,7 @@ router.post('/', createCotacao);
 router.get('/', listCotacoes);
 router.get('/:id', getCotacao);
 router.patch('/:id/status', updateCotacaoStatus);
+router.post('/:id/aprovacao-itens', aprovarCotacaoPorItens);
 router.get('/:id/comparativo', getComparativoCotacao);
 router.post('/:id/fornecedores', addFornecedorCotacao);
 router.get('/:id/fornecedores/:cotacaoFornecedorId/pdf', getSolicitacaoOrcamentoPdf);

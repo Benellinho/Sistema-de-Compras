@@ -63,6 +63,61 @@ export async function createCotacaoAprovadaComRespostaFixture({ fornecedores = 1
   };
 }
 
+export async function createCotacaoEmAnaliseComRespostaFixture({ fornecedores = 1 } = {}) {
+  await setupDatabase();
+
+  const solicitacao = await createSolicitacaoAprovadaComItemFixture();
+  const cotacao = await cotacoesService.create({
+    solicitacao_id: solicitacao.id,
+    criado_por: solicitacao.usuarioFixture.id,
+    observacoes: 'Cotacao para aprovacao por item'
+  });
+
+  const fornecedoresFixture = [];
+  const fornecedoresCotacaoFixture = [];
+
+  for (let index = 0; index < fornecedores; index += 1) {
+    const fornecedor = await createFornecedorFixture();
+    fornecedoresFixture.push(fornecedor);
+
+    const fornecedorCotacao = await fornecedoresCotacaoService.add(cotacao.id, {
+      fornecedor_id: fornecedor.id,
+      usuario_id: solicitacao.usuarioFixture.id
+    });
+
+    await fornecedoresCotacaoService.marcarEnvio(cotacao.id, fornecedorCotacao.id, {
+      usuario_id: solicitacao.usuarioFixture.id
+    });
+
+    await respostasCotacaoService.registrar(cotacao.id, fornecedorCotacao.id, {
+      usuario_id: solicitacao.usuarioFixture.id,
+      prazo_entrega: `${index + 3} dias`,
+      forma_pagamento: 'Boleto',
+      itens: [
+        {
+          solicitacao_item_id: solicitacao.itemSolicitacaoFixture.id,
+          quantidade: 10,
+          valor_unitario: 10 + index
+        }
+      ]
+    });
+
+    fornecedoresCotacaoFixture.push(fornecedorCotacao);
+  }
+
+  await cotacoesService.updateStatus(cotacao.id, {
+    status: 'EM_ANALISE',
+    usuario_id: solicitacao.usuarioFixture.id
+  });
+
+  return {
+    solicitacao,
+    cotacao: await cotacoesService.findOne(cotacao.id),
+    fornecedores: fornecedoresFixture,
+    fornecedoresCotacao: fornecedoresCotacaoFixture
+  };
+}
+
 export async function cleanupCompraFixtures({ solicitacao, fornecedores = [] }) {
   const database = await setupDatabase();
 
