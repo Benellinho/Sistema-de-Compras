@@ -102,8 +102,9 @@ function createPuppeteerPdfProvider({ puppeteer = null, launchOptions = {}, pdfO
         headless: process.env.PUPPETEER_HEADLESS || 'new',
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: process.env.PUPPETEER_NO_SANDBOX === '0'
-          ? []
-          : ['--no-sandbox', '--disable-setuid-sandbox'],
+          ? ['--disable-dev-shm-usage']
+          : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        dumpio: process.env.PUPPETEER_DUMPIO === '1',
         ...launchOptions
       });
 
@@ -139,10 +140,15 @@ async function renderPdfFromHtml(html, options = {}) {
   try {
     return await pdfProvider.renderPdf({ html, options });
   } catch (error) {
-    if (pdfProvider.name !== 'puppeteer' || process.env.PDF_PROVIDER_STRICT === '1') {
+    console.error('[PDF] Falha ao renderizar documento com o Puppeteer.', error);
+
+    const fallbackHabilitado = process.env.PDF_PROVIDER_FALLBACK === '1';
+
+    if (pdfProvider.name !== 'puppeteer' || !fallbackHabilitado) {
       throw error;
     }
 
+    console.warn('[PDF] Usando gerador textual de emergencia.');
     return createFallbackPdfBuffer(html);
   }
 }

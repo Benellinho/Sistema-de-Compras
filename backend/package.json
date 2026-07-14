@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "nodemon src/server.js",
-    "render-build": "npm ci",
+    "render-build": "npm ci && npx puppeteer browsers install chrome",
     "seed:base": "node scripts/seed-dados-base.js",
     "start": "node src/server.js",
     "test": "npm run test:db && npm run test:fornecedores && npm run test:itens && npm run test:usuarios && npm run test:solicitacoes && npm run test:cotacoes && npm run test:compras && npm run test:ordens-compra && npm run test:v1",

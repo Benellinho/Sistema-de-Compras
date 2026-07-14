@@ -1,4 +1,5 @@
 node_modules/
+backend/.cache/puppeteer/
 uploads/
 /pdf/
 logs/
