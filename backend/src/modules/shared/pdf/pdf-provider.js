@@ -1,7 +1,13 @@
+import { fileURLToPath } from 'node:url';
+
 const defaultPdfOptions = {
   format: 'A4',
   printBackground: true
 };
+
+const localPuppeteerCacheDirectory = fileURLToPath(
+  new URL('../../../../.cache/puppeteer/', import.meta.url)
+);
 
 function normalizePdfText(value) {
   return String(value ?? '')
@@ -88,6 +94,8 @@ async function loadPuppeteer(puppeteer) {
   if (puppeteer) {
     return puppeteer;
   }
+
+  process.env.PUPPETEER_CACHE_DIR ||= localPuppeteerCacheDirectory;
 
   const module = await import('puppeteer');
   return module.default || module;
