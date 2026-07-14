@@ -16,6 +16,7 @@ dist-ssr/
 /alterações.md
 backend/documentacao/alterações.md
 backend/documentacao/convencoes.md
+backend/documentacao/linha do tempo.md
 src/db/database.sqlite
 
 # Modelos privados/locais de documentos e PDFs

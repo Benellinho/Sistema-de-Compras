@@ -105,6 +105,10 @@ async function validateItemResposta(cotacaoId, item) {
     throw createValidationError('Valor unitario nao pode ser negativo.');
   }
 
+  if (valorUnitario === 0) {
+    throw createValidationError('Valor unitario deve ser maior que zero para considerar o item respondido.');
+  }
+
   return {
     solicitacao_item_id: item.solicitacao_item_id,
     status_item: 'DISPONIVEL',

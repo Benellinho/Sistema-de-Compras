@@ -142,7 +142,7 @@ async function addItem(compraId, compraFornecedorId, data) {
     throw createValidationError('Item indisponivel na cotacao nao pode ser comprado.');
   }
 
-  if (!required(respostaCotacao.valor_unitario)) {
+  if (!required(respostaCotacao.valor_unitario) || Number(respostaCotacao.valor_unitario) <= 0) {
     throw createValidationError('Item sem valor cotado nao pode ser comprado.');
   }
 
@@ -291,7 +291,7 @@ async function aprovarCotacaoPorItens(cotacaoId, data = {}) {
       throw createValidationError('Item indisponivel na cotacao nao pode ser comprado.');
     }
 
-    if (!required(respostaCotacao.valor_unitario)) {
+    if (!required(respostaCotacao.valor_unitario) || Number(respostaCotacao.valor_unitario) <= 0) {
       throw createValidationError('Item sem valor cotado nao pode ser comprado.');
     }
 

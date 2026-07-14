@@ -19,12 +19,12 @@ import {
 import {
   compraNumero,
   compraFornecedorTotal,
+  cotacaoFornecedorItensRespondidos,
   cotacaoFornecedorTotal,
   cotacaoNumero,
   fornecedorNome,
   formatCurrency,
   itemSolicitacaoDescricao,
-  retornoStatusFromFornecedor,
   solicitacaoClassificacaoOption,
   solicitacaoCotacaoOption,
   solicitacaoNecessidade,
@@ -81,6 +81,7 @@ export function ScreenRenderer({ screenId }) {
     selectedRetornoCotacao,
     selectedRetornoSolicitacao,
     selectedRetornoFornecedor,
+    fornecedoresRetornoDisponiveis,
     selectedAprovacaoCotacao,
     selectedAprovacaoSolicitacao,
     itensAprovacaoCotacao,
@@ -127,6 +128,9 @@ export function ScreenRenderer({ screenId }) {
     handleCreateGrupo,
     handleCreateItem,
     handleRetornoCotacaoChange,
+    handleRetornoFornecedorChange,
+    handleEditarRetorno,
+    handleCancelarEdicaoRetorno,
     handleAprovacaoCotacaoChange,
     goToEnvioCotacao,
     handleRecusarCotacao,
@@ -754,33 +758,37 @@ export function ScreenRenderer({ screenId }) {
                     Fornecedor da cotacao
                     <select
                       value={retornoCotacao.cotacaoFornecedorId}
-                      onChange={(event) => {
-                        const fornecedor = (selectedRetornoCotacao?.fornecedores || []).find(
-                          (item) => Number(item.id) === Number(event.target.value),
-                        )
-
-                        setRetornoCotacao((current) =>
-                          withRetornoStatus(
-                            {
-                              ...current,
-                              cotacaoFornecedorId: event.target.value,
-                            },
-                            retornoStatusFromFornecedor(fornecedor),
-                          ),
-                        )
-                      }}
+                      disabled={fornecedoresRetornoDisponiveis.length === 0}
+                      onChange={(event) => handleRetornoFornecedorChange(event.target.value)}
                     >
-                      {(selectedRetornoCotacao?.fornecedores || []).map((fornecedor) => (
-                        <option key={fornecedor.id} value={fornecedor.id}>
-                          {fornecedorNome(fornecedor)} - {statusText(fornecedor.status)}
-                        </option>
-                      ))}
+                      {fornecedoresRetornoDisponiveis.length === 0 && (
+                        <option value="">Todos os fornecedores ja responderam</option>
+                      )}
+                      {fornecedoresRetornoDisponiveis.length > 0 &&
+                        !retornoCotacao.cotacaoFornecedorId && (
+                          <option value="">Selecione um fornecedor</option>
+                        )}
+                      {fornecedoresRetornoDisponiveis.map((fornecedor) => {
+                        const itensRespondidos = cotacaoFornecedorItensRespondidos(fornecedor)
+                        const statusEfetivo =
+                          fornecedor.status === 'RESPONDIDO' &&
+                          itensRespondidos < retornoCotacao.itens.length
+                            ? 'PENDENTE'
+                            : fornecedor.status
+
+                        return (
+                          <option key={fornecedor.id} value={fornecedor.id}>
+                            {fornecedorNome(fornecedor)} - {statusText(statusEfetivo)}
+                          </option>
+                        )
+                      })}
                     </select>
                   </label>
                   <label>
                     Status do retorno
                     <select
                       value={retornoCotacao.status}
+                      disabled={retornoCotacao.editando}
                       onChange={(event) =>
                         setRetornoCotacao((current) =>
                           withRetornoStatus(current, event.target.value),
@@ -882,7 +890,7 @@ export function ScreenRenderer({ screenId }) {
                           <div>
                             <strong>{item.descricao}</strong>
                             <span>
-                              Solicitado: {item.quantidade} {item.unidade}
+                              Solicitado: {item.quantidadeSolicitada ?? item.quantidade} {item.unidade}
                             </span>
                           </div>
                           <label>
@@ -916,7 +924,7 @@ export function ScreenRenderer({ screenId }) {
                             Valor unitario
                             <input
                               type="number"
-                              min="0"
+                              min="0.01"
                               step="0.01"
                               value={item.valorUnitario}
                               disabled={disabled || item.statusItem === 'INDISPONIVEL'}
@@ -960,9 +968,18 @@ export function ScreenRenderer({ screenId }) {
                     }
                   >
                     <ButtonContent active={pendingAction === ACTIONS.registrarRetorno}>
-                      Registrar retorno
+                      {retornoCotacao.editando ? 'Salvar alteracoes' : 'Registrar retorno'}
                     </ButtonContent>
                   </button>
+                  {retornoCotacao.editando && (
+                    <button
+                      type="button"
+                      disabled={actionLocked}
+                      onClick={handleCancelarEdicaoRetorno}
+                    >
+                      Cancelar edicao
+                    </button>
+                  )}
                 </div>
               </section>
 
@@ -972,16 +989,40 @@ export function ScreenRenderer({ screenId }) {
                   <span>{respostasDaCotacao.length} registros</span>
                 </div>
                 <div className="response-history">
-                  {respostasDaCotacao.map((fornecedor) => (
+                  {respostasDaCotacao.map((fornecedor) => {
+                    const itensRespondidos = cotacaoFornecedorItensRespondidos(fornecedor)
+                    const statusEfetivo =
+                      fornecedor.status === 'RESPONDIDO' &&
+                      itensRespondidos < retornoCotacao.itens.length
+                        ? 'PENDENTE'
+                        : fornecedor.status
+
+                    return (
                     <article className="response-card" key={fornecedor.id}>
                       <div>
-                        <StatusBadge value={fornecedor.status} />
+                        <StatusBadge value={statusEfetivo} />
                         <span>{fornecedorNome(fornecedor)}</span>
                       </div>
+                      <span>
+                        Respondido: {itensRespondidos}/{retornoCotacao.itens.length}{' '}
+                        itens
+                      </span>
                       <span>{fornecedor.prazo_entrega || '-'}</span>
                       <b>{formatCurrency(cotacaoFornecedorTotal(fornecedor))}</b>
+                      {fornecedor.status === 'RESPONDIDO' ? (
+                        <button
+                          type="button"
+                          disabled={actionLocked}
+                          onClick={() => handleEditarRetorno(fornecedor)}
+                        >
+                          Editar
+                        </button>
+                      ) : (
+                        <span />
+                      )}
                     </article>
-                  ))}
+                    )
+                  })}
                 </div>
               </section>
             </form>

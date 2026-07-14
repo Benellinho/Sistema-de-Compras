@@ -11,6 +11,7 @@ import testBloquearSolicitacaoAprovadaApenasNecessidadeLivre from './cotacoes/bl
 import testBloquearSolicitacaoNaoAprovada from './cotacoes/bloquear-solicitacao-nao-aprovada.test.js';
 import testBloquearSolicitacaoReprovada from './cotacoes/bloquear-solicitacao-reprovada.test.js';
 import testBloquearValorNegativo from './cotacoes/bloquear-valor-negativo.test.js';
+import testBloquearValorZero from './cotacoes/bloquear-valor-zero.test.js';
 import testBuscarDetalhesCotacao from './cotacoes/buscar-detalhes-cotacao.test.js';
 import testFluxoCotacao from './cotacoes/fluxo-cotacao.test.js';
 import testGerarPdfSolicitacaoOrcamento from './cotacoes/gerar-pdf-solicitacao-orcamento.test.js';
@@ -38,6 +39,7 @@ const tests = [
       ['bloquear quantidade maior', testBloquearQuantidadeMaior],
       ['bloquear item fora da solicitacao', testBloquearItemForaDaSolicitacao],
       ['bloquear valor negativo', testBloquearValorNegativo],
+      ['bloquear valor zero', testBloquearValorZero],
       ['bloquear resposta cotacao encerrada', testBloquearRespostaCotacaoEncerrada],
       ['permitir nova rodada cotacao reprovada', testPermitirNovaRodadaCotacaoReprovada],
       ['registrar fornecedor sem valores', testRegistrarFornecedorSemValores],

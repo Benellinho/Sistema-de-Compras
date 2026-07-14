@@ -21,10 +21,12 @@ import {
 import {
   aprovacaoObservacao,
   buildRetornoItens,
+  buildRetornoItensEdicao,
   buildSolicitacaoObservacoes,
   calculateResponseTotal,
   compraNumero,
   compraTotal,
+  cotacaoFornecedorItensRespondidos,
   cotacaoMelhorValor,
   cotacaoNumero,
   fornecedorNome,
@@ -35,6 +37,7 @@ import {
   isActiveUsuario,
   ordemNumero,
   ordemTotal,
+  parseRetornoFormaPagamento,
   retornoFormaPagamentoText,
   retornoStatusFromFornecedor,
   solicitacaoItensCatalogados,
@@ -44,6 +47,27 @@ import {
   usuarioNome,
   withRetornoStatus,
 } from '../utils/formatters'
+
+function totalItensDaCotacao(cotacao, solicitacoes) {
+  const solicitacao = solicitacoes.find(
+    (item) => Number(item.id) === Number(cotacao?.solicitacao_id),
+  )
+
+  return solicitacaoItensCatalogados(solicitacao).length
+}
+
+function fornecedorPrecisaRetorno(fornecedor, totalItens) {
+  return (
+    fornecedor?.status !== 'RESPONDIDO' ||
+    cotacaoFornecedorItensRespondidos(fornecedor) < totalItens
+  )
+}
+
+function fornecedorPossuiRespostaComValor(fornecedor) {
+  return (fornecedor?.itens || []).some(
+    (item) => item.status_item === 'DISPONIVEL' && Number(item.valor_unitario || 0) > 0,
+  )
+}
 
 export function SistemaComprasProvider({ children }) {
   const location = useLocation()
@@ -99,6 +123,7 @@ export function SistemaComprasProvider({ children }) {
     observacoes: DEFAULT_RETORNO_OBSERVACOES,
     anexo: '',
     itens: [],
+    editando: false,
   })
   const [aprovacaoCotacao, setAprovacaoCotacao] = useState({
     cotacaoId: '',
@@ -176,7 +201,10 @@ export function SistemaComprasProvider({ children }) {
   const cotacoesParaAprovacao = useMemo(
     () =>
       cotacoesAbertas.filter((cotacao) =>
-        (cotacao.fornecedores || []).some((fornecedor) => fornecedor.status === 'RESPONDIDO'),
+        (cotacao.fornecedores || []).some(
+          (fornecedor) =>
+            fornecedor.status === 'RESPONDIDO' && fornecedorPossuiRespostaComValor(fornecedor),
+        ),
       ),
     [cotacoesAbertas],
   )
@@ -234,6 +262,27 @@ export function SistemaComprasProvider({ children }) {
     [retornoCotacao.cotacaoFornecedorId, selectedRetornoCotacao],
   )
 
+  const totalItensRetorno = useMemo(
+    () => solicitacaoItensCatalogados(selectedRetornoSolicitacao).length,
+    [selectedRetornoSolicitacao],
+  )
+
+  const fornecedoresRetornoDisponiveis = useMemo(
+    () =>
+      (selectedRetornoCotacao?.fornecedores || []).filter(
+        (fornecedor) =>
+          fornecedorPrecisaRetorno(fornecedor, totalItensRetorno) ||
+          (retornoCotacao.editando &&
+            Number(fornecedor.id) === Number(retornoCotacao.cotacaoFornecedorId)),
+      ),
+    [
+      retornoCotacao.cotacaoFornecedorId,
+      retornoCotacao.editando,
+      selectedRetornoCotacao,
+      totalItensRetorno,
+    ],
+  )
+
   const selectedAprovacaoCotacao = useMemo(
     () =>
       cotacoes.find((cotacao) => Number(cotacao.id) === Number(aprovacaoCotacao.cotacaoId)),
@@ -271,7 +320,8 @@ export function SistemaComprasProvider({ children }) {
           respostaItem: (fornecedor.itens || []).find(
             (item) =>
               Number(item.solicitacao_item_id) === Number(selectedAprovacaoItem?.id) &&
-              item.status_item === 'DISPONIVEL',
+              item.status_item === 'DISPONIVEL' &&
+              Number(item.valor_unitario || 0) > 0,
           ),
         }))
         .filter((item) => item.respostaItem),
@@ -524,7 +574,12 @@ export function SistemaComprasProvider({ children }) {
 
   function resetRetornoCotacaoForm() {
     const cotacao = cotacoesComFornecedores[0]
-    const fornecedor = cotacao?.fornecedores?.[0]
+    const totalItens = totalItensDaCotacao(cotacao, solicitacoes)
+    const fornecedor = (cotacao?.fornecedores || []).find(
+      (item) => fornecedorPrecisaRetorno(item, totalItens),
+    )
+    const editando = fornecedor?.status === 'RESPONDIDO'
+    const pagamento = parseRetornoFormaPagamento(fornecedor?.forma_pagamento)
 
     setRetornoCotacao(
       withRetornoStatus(
@@ -532,12 +587,23 @@ export function SistemaComprasProvider({ children }) {
           cotacaoId: cotacao?.id ? String(cotacao.id) : '',
           cotacaoFornecedorId: fornecedor?.id ? String(fornecedor.id) : '',
           status: 'RESPONDIDO',
-          prazoEntrega: DEFAULT_RETORNO_PRAZO,
-          tipoPagamento: DEFAULT_RETORNO_TIPO_PAGAMENTO,
-          parcelasPagamento: DEFAULT_RETORNO_PARCELAS,
-          observacoes: DEFAULT_RETORNO_OBSERVACOES,
+          prazoEntrega: editando
+            ? fornecedor.prazo_entrega || DEFAULT_RETORNO_PRAZO
+            : DEFAULT_RETORNO_PRAZO,
+          tipoPagamento: editando ? pagamento.tipoPagamento : DEFAULT_RETORNO_TIPO_PAGAMENTO,
+          parcelasPagamento: editando
+            ? pagamento.parcelasPagamento
+            : DEFAULT_RETORNO_PARCELAS,
+          observacoes: editando
+            ? fornecedor.observacoes || ''
+            : DEFAULT_RETORNO_OBSERVACOES,
           anexo: '',
-          itens: cotacao ? buildRetornoItens(cotacao, solicitacoes) : [],
+          itens: editando
+            ? buildRetornoItensEdicao(cotacao, solicitacoes, fornecedor)
+            : cotacao
+              ? buildRetornoItens(cotacao, solicitacoes)
+              : [],
+          editando,
         },
         retornoStatusFromFornecedor(fornecedor),
       ),
@@ -664,7 +730,10 @@ export function SistemaComprasProvider({ children }) {
       (cotacao) => (cotacao.fornecedores || []).length > 0,
     )
     const nextCotacoesParaAprovacao = nextCotacoesAbertas.filter((cotacao) =>
-      (cotacao.fornecedores || []).some((fornecedor) => fornecedor.status === 'RESPONDIDO'),
+      (cotacao.fornecedores || []).some(
+        (fornecedor) =>
+          fornecedor.status === 'RESPONDIDO' && fornecedorPossuiRespostaComValor(fornecedor),
+      ),
     )
     const nextOrdensAtivas = new Set(
       ordensData
@@ -766,16 +835,38 @@ export function SistemaComprasProvider({ children }) {
           (cotacao) => Number(cotacao.id) === Number(current.cotacaoId),
         ) || nextCotacoesComFornecedores[0]
       const fornecedoresCotacao = cotacaoAtual?.fornecedores || []
+      const totalItensCotacaoAtual = totalItensDaCotacao(cotacaoAtual, solicitacoesData)
       const fornecedorAtual =
         fornecedoresCotacao.find(
-          (fornecedor) => Number(fornecedor.id) === Number(current.cotacaoFornecedorId),
-        ) || fornecedoresCotacao[0]
+          (fornecedor) =>
+            Number(fornecedor.id) === Number(current.cotacaoFornecedorId) &&
+            (fornecedorPrecisaRetorno(fornecedor, totalItensCotacaoAtual) || current.editando),
+        ) ||
+        fornecedoresCotacao.find((fornecedor) =>
+          fornecedorPrecisaRetorno(fornecedor, totalItensCotacaoAtual),
+        )
+      const editando = fornecedorAtual?.status === 'RESPONDIDO'
+      const pagamento = parseRetornoFormaPagamento(fornecedorAtual?.forma_pagamento)
 
       return withRetornoStatus({
         ...current,
         cotacaoId: cotacaoAtual?.id ? String(cotacaoAtual.id) : '',
         cotacaoFornecedorId: fornecedorAtual?.id ? String(fornecedorAtual.id) : '',
-        itens: cotacaoAtual ? buildRetornoItens(cotacaoAtual, solicitacoesData) : [],
+        itens:
+          cotacaoAtual && editando
+            ? buildRetornoItensEdicao(cotacaoAtual, solicitacoesData, fornecedorAtual)
+            : cotacaoAtual
+              ? buildRetornoItens(cotacaoAtual, solicitacoesData)
+              : [],
+        prazoEntrega: editando
+          ? fornecedorAtual.prazo_entrega || DEFAULT_RETORNO_PRAZO
+          : current.prazoEntrega,
+        tipoPagamento: editando ? pagamento.tipoPagamento : current.tipoPagamento,
+        parcelasPagamento: editando
+          ? pagamento.parcelasPagamento
+          : current.parcelasPagamento,
+        observacoes: editando ? fornecedorAtual.observacoes || '' : current.observacoes,
+        editando,
       }, retornoStatusFromFornecedor(fornecedorAtual))
     })
 
@@ -1241,6 +1332,8 @@ export function SistemaComprasProvider({ children }) {
       setActionFeedback('')
 
       try {
+        const estavaEditando = retornoCotacao.editando
+
         if (!selectedRetornoCotacao || !selectedRetornoFornecedor) {
           throw new Error('Selecione uma cotacao e um fornecedor.')
         }
@@ -1277,9 +1370,12 @@ export function SistemaComprasProvider({ children }) {
           )
         }
 
+        setRetornoCotacao((current) => ({ ...current, editando: false }))
         await loadBackendData({
           silent: true,
-          successMessage: `Retorno de ${fornecedorNome(selectedRetornoFornecedor)} registrado.`,
+          successMessage: `Retorno de ${fornecedorNome(selectedRetornoFornecedor)} ${
+            estavaEditando ? 'atualizado' : 'registrado'
+          }.`,
         })
         navigateToTab('retorno-cotacao', { clearFeedback: false })
       } catch (error) {
@@ -1539,14 +1635,90 @@ export function SistemaComprasProvider({ children }) {
 
   function handleRetornoCotacaoChange(cotacaoId) {
     const cotacao = cotacoes.find((item) => Number(item.id) === Number(cotacaoId))
-    const firstFornecedor = cotacao?.fornecedores?.[0]
+    const totalItens = totalItensDaCotacao(cotacao, solicitacoes)
+    const firstFornecedor = (cotacao?.fornecedores || []).find(
+      (fornecedor) => fornecedorPrecisaRetorno(fornecedor, totalItens),
+    )
+    const editando = firstFornecedor?.status === 'RESPONDIDO'
+    const pagamento = parseRetornoFormaPagamento(firstFornecedor?.forma_pagamento)
 
     setRetornoCotacao((current) => withRetornoStatus({
       ...current,
       cotacaoId,
       cotacaoFornecedorId: firstFornecedor?.id ? String(firstFornecedor.id) : '',
-      itens: buildRetornoItens(cotacao, solicitacoes),
+      prazoEntrega: editando
+        ? firstFornecedor.prazo_entrega || DEFAULT_RETORNO_PRAZO
+        : DEFAULT_RETORNO_PRAZO,
+      tipoPagamento: editando ? pagamento.tipoPagamento : DEFAULT_RETORNO_TIPO_PAGAMENTO,
+      parcelasPagamento: editando ? pagamento.parcelasPagamento : DEFAULT_RETORNO_PARCELAS,
+      observacoes: editando
+        ? firstFornecedor.observacoes || ''
+        : DEFAULT_RETORNO_OBSERVACOES,
+      itens: editando
+        ? buildRetornoItensEdicao(cotacao, solicitacoes, firstFornecedor)
+        : buildRetornoItens(cotacao, solicitacoes),
+      editando,
     }, retornoStatusFromFornecedor(firstFornecedor)))
+  }
+
+  function handleRetornoFornecedorChange(cotacaoFornecedorId) {
+    const fornecedor = (selectedRetornoCotacao?.fornecedores || []).find(
+      (item) => Number(item.id) === Number(cotacaoFornecedorId),
+    )
+
+    if (fornecedor?.status === 'RESPONDIDO') {
+      handleEditarRetorno(fornecedor)
+      return
+    }
+
+    setRetornoCotacao((current) =>
+      withRetornoStatus(
+        {
+          ...current,
+          cotacaoFornecedorId,
+          itens: buildRetornoItens(selectedRetornoCotacao, solicitacoes),
+          editando: false,
+        },
+        retornoStatusFromFornecedor(fornecedor),
+      ),
+    )
+  }
+
+  function handleEditarRetorno(fornecedor) {
+    const pagamento = parseRetornoFormaPagamento(fornecedor.forma_pagamento)
+
+    setRetornoCotacao((current) => ({
+      ...current,
+      cotacaoFornecedorId: String(fornecedor.id),
+      status: 'RESPONDIDO',
+      prazoEntrega: fornecedor.prazo_entrega || DEFAULT_RETORNO_PRAZO,
+      tipoPagamento: pagamento.tipoPagamento,
+      parcelasPagamento: pagamento.parcelasPagamento,
+      observacoes: fornecedor.observacoes || '',
+      itens: buildRetornoItensEdicao(selectedRetornoCotacao, solicitacoes, fornecedor),
+      editando: true,
+    }))
+  }
+
+  function handleCancelarEdicaoRetorno() {
+    const totalItens = totalItensDaCotacao(selectedRetornoCotacao, solicitacoes)
+    const firstFornecedor = (selectedRetornoCotacao?.fornecedores || []).find(
+      (fornecedor) =>
+        fornecedor.status !== 'RESPONDIDO' &&
+        fornecedorPrecisaRetorno(fornecedor, totalItens),
+    )
+
+    setRetornoCotacao((current) =>
+      withRetornoStatus(
+        {
+          ...current,
+          cotacaoFornecedorId: firstFornecedor?.id ? String(firstFornecedor.id) : '',
+          itens: buildRetornoItens(selectedRetornoCotacao, solicitacoes),
+          editando: false,
+        },
+        retornoStatusFromFornecedor(firstFornecedor),
+      ),
+    )
   }
 
   function handleAprovacaoCotacaoChange(cotacaoId) {
@@ -1640,6 +1812,7 @@ export function SistemaComprasProvider({ children }) {
     selectedRetornoCotacao,
     selectedRetornoSolicitacao,
     selectedRetornoFornecedor,
+    fornecedoresRetornoDisponiveis,
     selectedAprovacaoCotacao,
     selectedAprovacaoSolicitacao,
     itensAprovacaoCotacao,
@@ -1691,6 +1864,9 @@ export function SistemaComprasProvider({ children }) {
     handleCreateGrupo,
     handleCreateItem,
     handleRetornoCotacaoChange,
+    handleRetornoFornecedorChange,
+    handleEditarRetorno,
+    handleCancelarEdicaoRetorno,
     handleAprovacaoCotacaoChange,
     goToEnvioCotacao,
     handleRecusarCotacao,

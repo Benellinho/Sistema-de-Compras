@@ -1005,7 +1005,12 @@ button:disabled {
 
 .response-card {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.6fr) 120px;
+  grid-template-columns:
+    minmax(220px, 1fr)
+    minmax(150px, 0.7fr)
+    minmax(140px, 0.6fr)
+    120px
+    auto;
   gap: 12px;
   align-items: center;
   padding: 12px;

@@ -72,7 +72,10 @@ async function get(cotacaoId) {
     });
 
     const respostasComValor = respostasItem.filter(
-      (resposta) => !resposta.sem_resposta && !resposta.indisponivel && resposta.valor_unitario !== null
+      (resposta) =>
+        !resposta.sem_resposta &&
+        !resposta.indisponivel &&
+        Number(resposta.valor_unitario || 0) > 0
     );
     const menorValor = respostasComValor.reduce((menor, resposta) => {
       if (!menor || Number(resposta.valor_unitario) < Number(menor.valor_unitario)) {

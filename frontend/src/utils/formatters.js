@@ -276,12 +276,61 @@ export function buildRetornoItens(cotacao, solicitacoes) {
   return solicitacaoItensCatalogados(solicitacao).map((item) => ({
     solicitacaoItemId: item.id,
     descricao: itemSolicitacaoDescricao(item),
+    quantidadeSolicitada: Number(item.quantidade || 0),
     quantidade: Number(item.quantidade || 0),
     unidade: item.unidade_snapshot || item.unidade || '',
     statusItem: 'DISPONIVEL',
     valorUnitario: '',
     observacoes: '',
   }))
+}
+
+export function cotacaoFornecedorItensRespondidos(fornecedor) {
+  return (fornecedor?.itens || []).filter(
+    (item) =>
+      item.status_item === 'INDISPONIVEL' || Number(item.valor_unitario || 0) > 0,
+  ).length
+}
+
+export function buildRetornoItensEdicao(cotacao, solicitacoes, fornecedor) {
+  return buildRetornoItens(cotacao, solicitacoes).map((item) => {
+    const resposta = (fornecedor?.itens || []).find(
+      (itemRespondido) =>
+        Number(itemRespondido.solicitacao_item_id) === Number(item.solicitacaoItemId),
+    )
+
+    if (!resposta) {
+      return item
+    }
+
+    return {
+      ...item,
+      statusItem: resposta.status_item || 'DISPONIVEL',
+      quantidade:
+        resposta.status_item === 'INDISPONIVEL'
+          ? item.quantidade
+          : Number(resposta.quantidade ?? item.quantidade),
+      valorUnitario:
+        resposta.status_item === 'INDISPONIVEL' ? '' : String(resposta.valor_unitario ?? ''),
+      observacoes: resposta.observacoes || '',
+    }
+  })
+}
+
+export function parseRetornoFormaPagamento(formaPagamento) {
+  const texto = String(formaPagamento || '')
+
+  if (texto.toLocaleLowerCase('pt-BR').includes('vista')) {
+    return {
+      tipoPagamento: 'A_VISTA',
+      parcelasPagamento: DEFAULT_RETORNO_PARCELAS,
+    }
+  }
+
+  return {
+    tipoPagamento: 'BOLETO',
+    parcelasPagamento: texto.match(/(\d+)x/i)?.[1] || DEFAULT_RETORNO_PARCELAS,
+  }
 }
 
 export function retornoStatusFromFornecedor(fornecedor) {
