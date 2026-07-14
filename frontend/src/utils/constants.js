@@ -66,8 +66,10 @@ export const retornoFornecedorStatuses = new Set([
 ])
 
 export const ACTIONS = {
+  atualizarDados: 'Atualizando dados',
   criarSolicitacao: 'Criando solicitacao',
   lancarItem: 'Lancando item',
+  carregarEdicaoItem: 'Carregando item para edicao',
   editarItem: 'Salvando item',
   removerItem: 'Removendo item',
   limparSolicitacoes: 'Limpando solicitacoes',

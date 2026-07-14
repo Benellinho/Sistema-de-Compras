@@ -1,5 +1,7 @@
 import { ButtonContent } from '../ui/Button'
+import { ActionFeedback } from '../ui/ActionFeedback'
 import { useSistemaCompras } from '../../context/comprasContext'
+import { ACTIONS } from '../../utils/constants'
 
 export function Navbar() {
   const { actionLocked, loadingData, handleLoadBackendData, navigateToTab } = useSistemaCompras()
@@ -24,6 +26,7 @@ export function Navbar() {
         >
           Nova solicitacao
         </button>
+        <ActionFeedback actions={ACTIONS.atualizarDados} />
       </div>
     </header>
   )

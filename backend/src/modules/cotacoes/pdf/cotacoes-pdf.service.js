@@ -6,6 +6,10 @@ import { renderPdfFromHtml } from '../../shared/pdf/pdf-provider.js';
 
 const templateUrl = new URL('../../../templates/cotacoes/solicitacao-orcamento.html', import.meta.url);
 
+const empresaGenerica = {
+  nome: 'Empresa Compradora'
+};
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -47,7 +51,7 @@ function renderItens(itens = []) {
   if (itens.length === 0) {
     return `
             <tr>
-              <td colspan="6" class="text-center">Nenhum item vinculado a esta cotação.</td>
+              <td colspan="5" class="text-center">Nenhum item vinculado a esta cotação.</td>
             </tr>`;
   }
 
@@ -59,7 +63,6 @@ function renderItens(itens = []) {
               <td>${escapeHtml(item.item_descricao || item.descricao_necessidade)}</td>
               <td class="text-center">${escapeHtml(item.unidade_snapshot)}</td>
               <td class="text-right">${formatNumber(item.quantidade)}</td>
-              <td>${escapeHtml(item.observacoes || '')}</td>
             </tr>`)
     .join('');
 }
@@ -71,6 +74,7 @@ async function renderSolicitacaoOrcamentoHtml(cotacaoId, cotacaoFornecedorId) {
   return {
     filename: getFilename(dados.cotacao, dados.fornecedor).replace(/\.pdf$/i, '.html'),
     html: replaceTokens(template, {
+      empresa_nome: escapeHtml(empresaGenerica.nome),
       cotacao_numero: escapeHtml(`Rodada ${dados.cotacao.numero_rodada}`),
       data_abertura: formatDate(dados.cotacao.data_abertura),
       observacoes: escapeHtml(dados.cotacao.observacoes || 'Solicitamos o envio dos valores para os itens abaixo.'),

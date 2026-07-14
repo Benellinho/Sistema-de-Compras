@@ -975,13 +975,54 @@ button:disabled {
   margin-top: 14px;
 }
 
-.success-message {
+.success-message,
+.danger-message {
   margin-top: 14px;
   padding: 12px;
-  border: 1px solid #86efac;
   border-radius: 8px;
+}
+
+.success-message {
+  border: 1px solid #86efac;
   color: #166534;
   background: #dcfce7;
+}
+
+.danger-message {
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.action-feedback {
+  width: 100%;
+}
+
+.table-action-link {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border: 1px solid #0f766e;
+  border-radius: 6px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.table-action-link:hover {
+  border-color: #115e59;
+  background: #115e59;
+}
+
+.table-action-unavailable {
+  color: var(--text-soft);
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .pending-message {

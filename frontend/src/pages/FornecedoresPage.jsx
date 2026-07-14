@@ -1,4 +1,5 @@
 import { ButtonContent } from '../components/ui/Button'
+import { ActionFeedback } from '../components/ui/ActionFeedback'
 import { ListBlock } from '../components/ui/ListBlock'
 import { ACTIONS } from '../utils/constants'
 import { fornecedorNome } from '../utils/formatters'
@@ -104,6 +105,7 @@ export default function FornecedoresPage() {
                 Cadastrar fornecedor
               </ButtonContent>
             </button>
+            <ActionFeedback actions={ACTIONS.cadastrarFornecedor} />
           </form>
         </section>
 
@@ -194,6 +196,7 @@ export default function FornecedoresPage() {
                 Cadastrar contato
               </ButtonContent>
             </button>
+            <ActionFeedback actions={ACTIONS.cadastrarContato} />
           </form>
         </section>
       </div>

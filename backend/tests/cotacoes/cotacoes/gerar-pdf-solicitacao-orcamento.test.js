@@ -33,6 +33,10 @@ export default async function testGerarPdfSolicitacaoOrcamento() {
         assert.match(html, /Solicitação de Orçamento/);
         assert.match(html, /Fornecedor PDF Orcamento/);
         assert.match(html, /Item Solicitacao|Reposicao para cotacao/);
+        assert.match(html, /Empresa Compradora/);
+        assert.doesNotMatch(html, /Valor Unit\./);
+        assert.doesNotMatch(html, /Total geral/);
+        assert.doesNotMatch(html, /{{[^}]+}}/);
 
         return Buffer.from('%PDF-cotacao-orcamento');
       }

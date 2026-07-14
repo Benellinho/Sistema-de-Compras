@@ -1,5 +1,6 @@
-import { API_BASE_URL, API_ROUTES } from '../config/api'
+import { API_BASE_URL, API_ROUTES, apiUrl } from '../config/api'
 import { ActionScreen } from '../components/ui/ActionScreen'
+import { ActionFeedback } from '../components/ui/ActionFeedback'
 import { ButtonContent } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ListBlock } from '../components/ui/ListBlock'
@@ -288,6 +289,7 @@ export function ScreenRenderer({ screenId }) {
                       Criar solicitacao
                     </ButtonContent>
                   </button>
+                  <ActionFeedback actions={ACTIONS.criarSolicitacao} />
                 </form>
               </section>
 
@@ -316,6 +318,7 @@ export function ScreenRenderer({ screenId }) {
                     </ButtonContent>
                   </button>
                 </div>
+                <ActionFeedback actions={ACTIONS.limparSolicitacoes} />
               </section>
             </div>
 
@@ -503,6 +506,9 @@ export function ScreenRenderer({ screenId }) {
                       Avançar para pedir cotacao
                     </button>
                   </div>
+                  <ActionFeedback
+                    actions={[ACTIONS.criarSolicitacao, ACTIONS.lancarItem, ACTIONS.editarItem]}
+                  />
                 </section>
               </div>
             </form>
@@ -553,6 +559,9 @@ export function ScreenRenderer({ screenId }) {
               ) : (
                 <EmptyState text="Nenhum item lancado para esta solicitacao." />
               )}
+              <ActionFeedback
+                actions={[ACTIONS.carregarEdicaoItem, ACTIONS.removerItem]}
+              />
             </section>
           </ActionScreen>
         )}
@@ -686,6 +695,7 @@ export function ScreenRenderer({ screenId }) {
                       </ButtonContent>
                     </button>
                   </div>
+                  <ActionFeedback actions={ACTIONS.enviarCotacao} />
                 </section>
               </div>
             </form>
@@ -704,8 +714,29 @@ export function ScreenRenderer({ screenId }) {
                 ['respostas', 'Respostas'],
                 ['melhorValor', 'Melhor valor', formatCurrency],
                 ['status', 'Status', StatusBadge],
+                [
+                  'cotacaoFornecedorId',
+                  'Modelo PDF',
+                  (cotacaoFornecedorId, row) =>
+                    cotacaoFornecedorId ? (
+                      <a
+                        className="table-action-link"
+                        href={apiUrl(
+                          `/cotacoes/${row.id}/fornecedores/${cotacaoFornecedorId}/pdf`,
+                        )}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Abre o PDF real usando o primeiro fornecedor convidado"
+                      >
+                        Ver modelo PDF
+                      </a>
+                    ) : (
+                      <span className="table-action-unavailable">Sem fornecedor</span>
+                    ),
+                ],
               ]}
             />
+            <ActionFeedback actions={[ACTIONS.enviarCotacao, ACTIONS.recusarCotacao]} />
           </div>
         )}
 
@@ -981,6 +1012,7 @@ export function ScreenRenderer({ screenId }) {
                     </button>
                   )}
                 </div>
+                <ActionFeedback actions={ACTIONS.registrarRetorno} />
               </section>
 
               <section className="section-block">
@@ -1345,6 +1377,7 @@ export function ScreenRenderer({ screenId }) {
                     </ButtonContent>
                   </button>
                 </div>
+                <ActionFeedback actions={[ACTIONS.aceitarCotacao, ACTIONS.recusarCotacao]} />
               </section>
             </form>
           </ActionScreen>
@@ -1380,6 +1413,7 @@ export function ScreenRenderer({ screenId }) {
                   </label>
                 )}
               </div>
+              <ActionFeedback actions={ACTIONS.aceitarCotacao} />
               {compraFornecedoresElegiveis.length > 0 ? (
                 <>
                   <div className="order-transfer-grid">
@@ -1574,6 +1608,7 @@ export function ScreenRenderer({ screenId }) {
                       </ButtonContent>
                     </button>
                   </div>
+                  <ActionFeedback actions={ACTIONS.gerarOrdemCompra} />
                 </>
               ) : (
                 <EmptyState text="Nenhuma compra aprovada pendente de ordem." />
@@ -1699,6 +1734,7 @@ export function ScreenRenderer({ screenId }) {
                       Cadastrar fornecedor
                     </ButtonContent>
                   </button>
+                  <ActionFeedback actions={ACTIONS.cadastrarFornecedor} />
                 </form>
               </section>
 
@@ -1789,6 +1825,7 @@ export function ScreenRenderer({ screenId }) {
                       Cadastrar contato
                     </ButtonContent>
                   </button>
+                  <ActionFeedback actions={ACTIONS.cadastrarContato} />
                 </form>
               </section>
             </div>
@@ -1824,6 +1861,7 @@ export function ScreenRenderer({ screenId }) {
                       Cadastrar grupo
                     </ButtonContent>
                   </button>
+                  <ActionFeedback actions={ACTIONS.cadastrarGrupo} />
                 </form>
               </section>
 
@@ -1942,6 +1980,7 @@ export function ScreenRenderer({ screenId }) {
                       Cadastrar item
                     </ButtonContent>
                   </button>
+                  <ActionFeedback actions={ACTIONS.cadastrarItem} />
                 </form>
               </section>
             </div>

@@ -1,4 +1,5 @@
 import { ButtonContent } from '../components/ui/Button'
+import { ActionFeedback } from '../components/ui/ActionFeedback'
 import { ListBlock } from '../components/ui/ListBlock'
 import { ACTIONS } from '../utils/constants'
 import { useSistemaCompras } from '../context/comprasContext'
@@ -47,6 +48,7 @@ export default function ItensPage() {
                 Cadastrar grupo
               </ButtonContent>
             </button>
+            <ActionFeedback actions={ACTIONS.cadastrarGrupo} />
           </form>
         </section>
 
@@ -165,6 +167,7 @@ export default function ItensPage() {
                 Cadastrar item
               </ButtonContent>
             </button>
+            <ActionFeedback actions={ACTIONS.cadastrarItem} />
           </form>
         </section>
       </div>

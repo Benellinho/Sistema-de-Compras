@@ -85,6 +85,7 @@ export function SistemaComprasProvider({ children }) {
   const [loadingData, setLoadingData] = useState(false)
   const [pendingAction, setPendingAction] = useState('')
   const [actionFeedback, setActionFeedback] = useState('')
+  const [feedbackAction, setFeedbackAction] = useState('')
   const actionLockedRef = useRef(false)
   const [apiStatus, setApiStatus] = useState({
     label: 'Aguardando checagem',
@@ -458,6 +459,7 @@ export function SistemaComprasProvider({ children }) {
     () =>
       cotacoes.map((cotacao) => {
         const resumo = cotacao.resumo_respostas || {}
+        const primeiroFornecedor = cotacao.fornecedores?.[0]
         const respondidos =
           resumo.fornecedores_respondidos ??
           (cotacao.fornecedores || []).filter((fornecedor) => fornecedor.status === 'RESPONDIDO')
@@ -472,6 +474,7 @@ export function SistemaComprasProvider({ children }) {
           status: cotacao.status,
           respostas: `${respondidos}/${convidados}`,
           melhorValor: cotacaoMelhorValor(cotacao),
+          cotacaoFornecedorId: primeiroFornecedor?.id || null,
         }
       }),
     [cotacoes],
@@ -525,6 +528,7 @@ export function SistemaComprasProvider({ children }) {
 
     actionLockedRef.current = true
     setPendingAction(actionName)
+    setFeedbackAction(actionName)
 
     try {
       await task()
@@ -939,6 +943,7 @@ export function SistemaComprasProvider({ children }) {
   async function loadBackendData({ silent = false, successMessage = '' } = {}) {
     if (!silent) {
       setLoadingData(true)
+      setFeedbackAction(ACTIONS.atualizarDados)
     }
 
     try {
@@ -1028,7 +1033,7 @@ export function SistemaComprasProvider({ children }) {
   }
 
   async function handleLoadBackendData() {
-    return runLocked('Atualizando dados', async () => {
+    return runLocked(ACTIONS.atualizarDados, async () => {
       await loadBackendData()
     })
   }
@@ -1200,6 +1205,7 @@ export function SistemaComprasProvider({ children }) {
   }
 
   function handleEditClassificacaoItem(item) {
+    setFeedbackAction(ACTIONS.carregarEdicaoItem)
     setActionFeedback('Item carregado para edicao.')
     setClassificacaoForm((current) => ({
       ...current,
@@ -1778,6 +1784,7 @@ export function SistemaComprasProvider({ children }) {
     loadingData,
     pendingAction,
     actionFeedback,
+    feedbackAction,
     apiStatus,
     draft,
     classificacaoForm,
