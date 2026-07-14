@@ -102,23 +102,47 @@ async function loadPuppeteer(puppeteer) {
 }
 
 function createPuppeteerPdfProvider({ puppeteer = null, launchOptions = {}, pdfOptions = {} } = {}) {
+  let browserPromise = null;
+
+  async function getBrowser() {
+    if (!browserPromise) {
+      browserPromise = loadPuppeteer(puppeteer)
+        .then((puppeteerModule) => puppeteerModule.launch({
+          headless: process.env.PUPPETEER_HEADLESS || 'new',
+          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+          args: process.env.PUPPETEER_NO_SANDBOX === '0'
+            ? ['--disable-dev-shm-usage']
+            : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+          dumpio: process.env.PUPPETEER_DUMPIO === '1',
+          ...launchOptions
+        }))
+        .then((browser) => {
+          browser.on?.('disconnected', () => {
+            browserPromise = null;
+          });
+
+          return browser;
+        })
+        .catch((error) => {
+          browserPromise = null;
+          throw error;
+        });
+    }
+
+    return browserPromise;
+  }
+
   return {
     name: 'puppeteer',
     async renderPdf({ html, options = {} }) {
-      const puppeteerModule = await loadPuppeteer(puppeteer);
-      const browser = await puppeteerModule.launch({
-        headless: process.env.PUPPETEER_HEADLESS || 'new',
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-        args: process.env.PUPPETEER_NO_SANDBOX === '0'
-          ? ['--disable-dev-shm-usage']
-          : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-        dumpio: process.env.PUPPETEER_DUMPIO === '1',
-        ...launchOptions
-      });
+      const browser = await getBrowser();
+      const page = await browser.newPage();
 
       try {
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle0' });
+        await page.setContent(html, {
+          waitUntil: 'domcontentloaded',
+          timeout: Number(process.env.PDF_CONTENT_TIMEOUT_MS || 10000)
+        });
         const buffer = await page.pdf({
           ...defaultPdfOptions,
           ...pdfOptions,
@@ -127,7 +151,7 @@ function createPuppeteerPdfProvider({ puppeteer = null, launchOptions = {}, pdfO
 
         return Buffer.from(buffer);
       } finally {
-        await browser.close();
+        await page.close();
       }
     }
   };

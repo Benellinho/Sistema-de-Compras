@@ -12,6 +12,9 @@ export default async function testUsarPuppeteerProviderPdf() {
         async pdf(options) {
           calls.push({ action: 'pdf', options });
           return Buffer.from('%PDF-puppeteer-test');
+        },
+        async close() {
+          calls.push({ action: 'close-page' });
         }
       };
     },
@@ -40,5 +43,7 @@ export default async function testUsarPuppeteerProviderPdf() {
   assert.equal(calls[2].action, 'pdf');
   assert.equal(calls[2].options.format, 'A4');
   assert.equal(calls[2].options.printBackground, true);
-  assert.equal(calls[3].action, 'close');
+  assert.equal(calls[1].options.waitUntil, 'domcontentloaded');
+  assert.equal(calls[1].options.timeout, 10000);
+  assert.equal(calls[3].action, 'close-page');
 }
