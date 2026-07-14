@@ -11,6 +11,7 @@ export function Sidebar() {
       <NavLink
         key={item.screenId}
         to={item.path}
+        end={item.screenId !== activeTab}
         onClick={(event) => {
           event.preventDefault()
 
@@ -18,7 +19,9 @@ export function Sidebar() {
             navigateToTab(item.screenId)
           }
         }}
-        className={({ isActive }) => (isActive ? 'active' : undefined)}
+        className={({ isActive }) =>
+          isActive && item.screenId === activeTab ? 'active' : undefined
+        }
         aria-disabled={actionLocked}
       >
         {item.label}
