@@ -1,10 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import cotacoesRepository from '../cotacoes/cotacoes.repository.js';
+import solicitacoesRepository from '../../solicitacoes/solicitacoes/solicitacoes.repository.js';
 import { validateCotacaoExiste } from '../cotacoes/cotacoes.service.js';
 import { validateFornecedorDaCotacao } from '../fornecedores/fornecedores-cotacao.service.js';
 import { renderPdfFromHtml } from '../../shared/pdf/pdf-provider.js';
 
 const templateUrl = new URL('../../../templates/cotacoes/solicitacao-orcamento.html', import.meta.url);
+const logoUrl = new URL('../../../templates/marozal/elementos/LogotipoMzl.jpeg', import.meta.url);
 
 const empresaGenerica = {
   nome: 'Empresa Compradora'
@@ -19,18 +21,16 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
-function formatDate(value) {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
+function formatDate(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return escapeHtml(value);
   }
 
-  return new Intl.DateTimeFormat('pt-BR').format(date);
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo'
+  }).format(date);
 }
 
 function formatNumber(value) {
@@ -51,18 +51,17 @@ function renderItens(itens = []) {
   if (itens.length === 0) {
     return `
             <tr>
-              <td colspan="5" class="text-center">Nenhum item vinculado a esta cotação.</td>
+              <td colspan="4" class="text-center">Nenhum item vinculado a esta cotação.</td>
             </tr>`;
   }
 
   return itens
     .map((item, index) => `
             <tr>
-              <td class="text-center">${index + 1}</td>
-              <td>${escapeHtml(item.item_codigo)}</td>
-              <td>${escapeHtml(item.item_descricao || item.descricao_necessidade)}</td>
+              <td class="item-index text-center">${index + 1}</td>
+              <td class="item-description">${escapeHtml(item.item_descricao || item.descricao_necessidade)}</td>
+              <td class="text-center">${formatNumber(item.quantidade)}</td>
               <td class="text-center">${escapeHtml(item.unidade_snapshot)}</td>
-              <td class="text-right">${formatNumber(item.quantidade)}</td>
             </tr>`)
     .join('');
 }
@@ -70,13 +69,19 @@ function renderItens(itens = []) {
 async function renderSolicitacaoOrcamentoHtml(cotacaoId, cotacaoFornecedorId) {
   const dados = await getDadosSolicitacaoOrcamento(cotacaoId, cotacaoFornecedorId);
   const template = await readFile(templateUrl, 'utf8');
+  const logo = await readFile(logoUrl);
+  const dataDocumento = dados.fornecedor.data_envio || new Date();
 
   return {
     filename: getFilename(dados.cotacao, dados.fornecedor).replace(/\.pdf$/i, '.html'),
     html: replaceTokens(template, {
       empresa_nome: escapeHtml(empresaGenerica.nome),
-      cotacao_numero: escapeHtml(`Rodada ${dados.cotacao.numero_rodada}`),
-      data_abertura: formatDate(dados.cotacao.data_abertura),
+      logo_mzl: `data:image/jpeg;base64,${logo.toString('base64')}`,
+      documento_codigo: escapeHtml(
+        `SOL-${dados.solicitacao.id} / COT-${dados.cotacao.id} / R${dados.cotacao.numero_rodada}`
+      ),
+      data_envio: formatDate(dataDocumento),
+      solicitante_nome: escapeHtml(dados.solicitacao.solicitante_nome),
       observacoes: escapeHtml(dados.cotacao.observacoes || 'Solicitamos o envio dos valores para os itens abaixo.'),
       fornecedor_razao_social: escapeHtml(dados.fornecedor.fornecedor_razao_social),
       fornecedor_cnpj: escapeHtml(dados.fornecedor.fornecedor_cnpj),
@@ -101,11 +106,13 @@ async function gerarSolicitacaoOrcamentoPdf(cotacaoId, cotacaoFornecedorId) {
 async function getDadosSolicitacaoOrcamento(cotacaoId, cotacaoFornecedorId) {
   const cotacao = await validateCotacaoExiste(cotacaoId);
   const fornecedor = await validateFornecedorDaCotacao(cotacaoId, cotacaoFornecedorId);
+  const solicitacao = await solicitacoesRepository.findById(cotacao.solicitacao_id);
   const itens = await cotacoesRepository.findSolicitacaoItensByCotacaoId(cotacaoId);
 
   return {
     cotacao,
     fornecedor,
+    solicitacao,
     itens
   };
 }

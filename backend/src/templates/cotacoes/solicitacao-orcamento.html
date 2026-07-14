@@ -2,21 +2,23 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8">
-    <title>Solicitação de Orçamento {{cotacao_numero}}</title>
+    <title>Solicitação de Orçamento {{documento_codigo}}</title>
     <style>
       :root {
-        --border: #1f2933;
+        --primary-dark: #115e59;
+        --text: #111827;
         --muted: #5c6873;
-        --light: #f3f5f7;
-        --title: #111827;
+        --border: #cbd2d9;
+        --surface-muted: #f3f5f7;
+        --page-background: #e7eaee;
       }
 
       * { box-sizing: border-box; }
 
       body {
         margin: 0;
-        background: #e7eaee;
-        color: #111827;
+        background: var(--page-background);
+        color: var(--text);
         font-family: Arial, Helvetica, sans-serif;
         font-size: 12px;
       }
@@ -25,135 +27,146 @@
         width: 210mm;
         min-height: 297mm;
         margin: 0 auto;
-        background: #fff;
         padding: 14mm 12mm;
+        background: #fff;
       }
 
-      .header {
+      .document-header {
         display: grid;
-        grid-template-columns: 1fr 48mm;
-        gap: 8mm;
-        border: 1px solid var(--border);
+        grid-template-columns: 1fr 72mm;
+        border: 1px solid var(--text);
       }
 
-      .company {
-        min-height: 30mm;
+      .company-block {
+        min-height: 31mm;
         padding: 5mm;
       }
 
-      .logo-box {
-        display: inline-flex;
+      .document-logo {
+        display: block;
         width: 38mm;
         height: 14mm;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 4mm;
-        border: 1px solid #9aa4af;
-        color: var(--muted);
-        font-weight: 700;
+        margin-bottom: 3mm;
+        object-fit: contain;
+        object-position: left center;
       }
 
       .company-name {
-        color: var(--title);
-        font-size: 16px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
         font-weight: 700;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
       }
 
-      .quote-box { border-left: 1px solid var(--border); }
+      .document-summary { border-left: 1px solid var(--text); }
 
-      .quote-title {
+      .document-title {
+        margin: 0;
         padding: 3mm;
-        border-bottom: 1px solid var(--border);
-        background: var(--light);
+        border-bottom: 1px solid var(--text);
+        background: var(--surface-muted);
+        color: var(--primary-dark);
         font-size: 15px;
         font-weight: 700;
         text-align: center;
         text-transform: uppercase;
       }
 
-      .quote-info { padding: 4mm; }
-
-      .quote-number {
-        display: block;
-        margin-bottom: 3mm;
-        font-size: 18px;
-        font-weight: 700;
-        text-align: center;
-      }
-
-      .section {
-        margin-top: 5mm;
-        border: 1px solid var(--border);
-      }
-
-      .section-title {
-        padding: 2mm 3mm;
-        border-bottom: 1px solid var(--border);
-        background: var(--light);
-        font-weight: 700;
-        text-transform: uppercase;
-      }
-
-      .supplier-grid {
+      .document-meta {
         display: grid;
-        grid-template-columns: 1.4fr 0.8fr 1fr;
+        grid-template-columns: 1.4fr 0.8fr;
+        gap: 3mm;
+        padding: 4mm;
       }
 
-      .cell {
-        min-height: 14mm;
-        padding: 2.5mm 3mm;
-        border-right: 1px solid #cbd2d9;
-      }
-
-      .cell:last-child { border-right: 0; }
-
-      .cell-label {
+      .meta-label,
+      .field-label {
         display: block;
         margin-bottom: 1mm;
         color: var(--muted);
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 700;
         text-transform: uppercase;
       }
 
-      .cell-value { font-weight: 600; }
+      .meta-value,
+      .field-value { font-weight: 600; }
 
-      table {
-        width: 100%;
-        border-collapse: collapse;
+      .document-section {
+        margin-top: 5mm;
+        border: 1px solid var(--text);
       }
 
-      thead { display: table-header-group; }
+      .section-title {
+        margin: 0;
+        padding: 2.2mm 3mm;
+        border-bottom: 1px solid var(--text);
+        background: var(--surface-muted);
+        color: var(--primary-dark);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
 
-      th,
-      td {
-        padding: 2.2mm 2mm;
-        border-bottom: 1px solid #cbd2d9;
+      .request-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .info-field {
+        min-height: 14mm;
+        padding: 3mm;
+      }
+
+      .info-field + .info-field { border-left: 1px solid var(--border); }
+
+      .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      .items-table col.item-number { width: 14mm; }
+      .items-table col.item-quantity { width: 22mm; }
+      .items-table col.item-unit { width: 18mm; }
+
+      .items-table th,
+      .items-table td {
+        padding: 2.4mm 2.5mm;
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        color: #000;
         vertical-align: top;
       }
 
-      th {
-        background: var(--light);
-        font-size: 10px;
+      .items-table th {
+        background: #fafbfc;
+        font-size: 9px;
+        font-weight: 700;
         text-align: left;
         text-transform: uppercase;
       }
 
-      .text-right { text-align: right; }
+      .items-table tbody tr:last-child td { border-bottom: 0; }
       .text-center { text-align: center; }
+      .item-index { font-weight: 700; }
+      .item-description { line-height: 1.35; }
 
       .notes {
-        min-height: 24mm;
+        min-height: 18mm;
         padding: 3mm;
         line-height: 1.45;
       }
 
-      .footer {
-        margin-top: 9mm;
+      .document-footer {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 7mm;
         color: var(--muted);
-        font-size: 10px;
-        text-align: center;
+        font-size: 9px;
       }
 
       @media print {
@@ -165,67 +178,78 @@
           margin: 0;
           padding: 0;
         }
+
+        .items-table thead { display: table-header-group; }
+        .items-table tr { break-inside: avoid; }
       }
     </style>
   </head>
   <body>
     <main class="page">
-      <header class="header">
-        <section class="company">
-          <div class="logo-box">LOGO</div>
-          <div class="company-name">{{empresa_nome}}</div>
+      <header class="document-header">
+        <section class="company-block">
+          <img class="document-logo" src="{{logo_mzl}}" alt="Logotipo MZL">
+          <p class="company-name">{{empresa_nome}}</p>
         </section>
 
-        <aside class="quote-box">
-          <div class="quote-title">Solicitação de Orçamento</div>
-          <div class="quote-info">
-            <span class="quote-number">{{cotacao_numero}}</span>
-            <div><strong>Data da solicitação:</strong> {{data_abertura}}</div>
+        <section class="document-summary">
+          <h1 class="document-title">Solicitação de Orçamento</h1>
+          <div class="document-meta">
+            <div>
+              <span class="meta-label">Código</span>
+              <span class="meta-value">{{documento_codigo}}</span>
+            </div>
+            <div>
+              <span class="meta-label">Data</span>
+              <span class="meta-value">{{data_envio}}</span>
+            </div>
           </div>
-        </aside>
+        </section>
       </header>
 
-      <section class="section">
-        <div class="section-title">Fornecedor</div>
-        <div class="supplier-grid">
-          <div class="cell">
-            <span class="cell-label">Nome</span>
-            <span class="cell-value">{{fornecedor_razao_social}}</span>
+      <section class="document-section">
+        <h2 class="section-title">Dados da solicitação</h2>
+        <div class="request-info">
+          <div class="info-field">
+            <span class="field-label">Solicitante</span>
+            <span class="field-value">{{solicitante_nome}}</span>
           </div>
-          <div class="cell">
-            <span class="cell-label">CNPJ</span>
-            <span class="cell-value">{{fornecedor_cnpj}}</span>
-          </div>
-          <div class="cell">
-            <span class="cell-label">E-mail</span>
-            <span class="cell-value">{{fornecedor_email}}</span>
+          <div class="info-field">
+            <span class="field-label">Fornecedor</span>
+            <span class="field-value">{{fornecedor_razao_social}}</span>
           </div>
         </div>
       </section>
 
-      <section class="section">
-        <div class="section-title">Itens para cotação</div>
-        <table>
+      <section class="document-section">
+        <h2 class="section-title">Itens</h2>
+        <table class="items-table">
+          <colgroup>
+            <col class="item-number">
+            <col>
+            <col class="item-quantity">
+            <col class="item-unit">
+          </colgroup>
           <thead>
             <tr>
               <th class="text-center">Item</th>
-              <th>Código</th>
               <th>Descrição</th>
+              <th class="text-center">Qtd.</th>
               <th class="text-center">Un.</th>
-              <th class="text-right">Qtd.</th>
             </tr>
           </thead>
           <tbody>{{itens_linhas}}</tbody>
         </table>
       </section>
 
-      <section class="section">
-        <div class="section-title">Observações</div>
+      <section class="document-section">
+        <h2 class="section-title">Observações</h2>
         <div class="notes">{{observacoes}}</div>
       </section>
 
-      <footer class="footer">
-        Documento gerado pelo Sistema de Compras para solicitação de orçamento.
+      <footer class="document-footer">
+        <span>Documento gerado pelo Sistema de Compras.</span>
+        <span>Emitido em {{data_envio}}</span>
       </footer>
     </main>
   </body>

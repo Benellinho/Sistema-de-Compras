@@ -32,8 +32,14 @@ export default async function testGerarPdfSolicitacaoOrcamento() {
       async renderPdf({ html }) {
         assert.match(html, /Solicitação de Orçamento/);
         assert.match(html, /Fornecedor PDF Orcamento/);
+        assert.match(html, new RegExp(solicitacao.usuarioFixture.nome));
         assert.match(html, /Item Solicitacao|Reposicao para cotacao/);
         assert.match(html, /Empresa Compradora/);
+        assert.match(html, new RegExp(`SOL-${solicitacao.id} / COT-${cotacao.id} / R1`));
+        assert.match(html, /<td class="item-index text-center">1<\/td>/);
+        assert.match(html, /<th class="text-center">Qtd\.<\/th>/);
+        assert.match(html, /<th class="text-center">Un\.<\/th>/);
+        assert.match(html, /data:image\/jpeg;base64,/);
         assert.doesNotMatch(html, /Valor Unit\./);
         assert.doesNotMatch(html, /Total geral/);
         assert.doesNotMatch(html, /{{[^}]+}}/);
