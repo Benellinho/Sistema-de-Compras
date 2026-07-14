@@ -33,7 +33,7 @@
 
       .document-header {
         display: grid;
-        grid-template-columns: 1fr 72mm;
+        grid-template-columns: 1fr 62mm;
         border: 1px solid var(--text);
       }
 
@@ -76,7 +76,7 @@
 
       .document-meta {
         display: grid;
-        grid-template-columns: 1.4fr 0.8fr;
+        grid-template-columns: 1fr 1fr;
         gap: 3mm;
         padding: 4mm;
       }
@@ -154,12 +154,6 @@
       .text-center { text-align: center; }
       .item-index { font-weight: 700; }
       .item-description { line-height: 1.35; }
-
-      .notes {
-        min-height: 18mm;
-        padding: 3mm;
-        line-height: 1.45;
-      }
 
       .document-footer {
         display: flex;
@@ -242,14 +236,9 @@
         </table>
       </section>
 
-      <section class="document-section">
-        <h2 class="section-title">Observações</h2>
-        <div class="notes">{{observacoes}}</div>
-      </section>
-
       <footer class="document-footer">
         <span>Documento gerado pelo Sistema de Compras.</span>
-        <span>Emitido em {{data_envio}}</span>
+        <span>Versão 01: 07/2026</span>
       </footer>
     </main>
   </body>

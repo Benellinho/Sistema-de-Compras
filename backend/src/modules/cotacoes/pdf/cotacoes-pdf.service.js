@@ -9,7 +9,7 @@ const templateUrl = new URL('../../../templates/cotacoes/solicitacao-orcamento.h
 const logoUrl = new URL('../../../templates/marozal/elementos/LogotipoMzl.jpeg', import.meta.url);
 
 const empresaGenerica = {
-  nome: 'Empresa Compradora'
+  nome: 'Sistema de Compras'
 };
 
 function escapeHtml(value) {
@@ -82,7 +82,6 @@ async function renderSolicitacaoOrcamentoHtml(cotacaoId, cotacaoFornecedorId) {
       ),
       data_envio: formatDate(dataDocumento),
       solicitante_nome: escapeHtml(dados.solicitacao.solicitante_nome),
-      observacoes: escapeHtml(dados.cotacao.observacoes || 'Solicitamos o envio dos valores para os itens abaixo.'),
       fornecedor_razao_social: escapeHtml(dados.fornecedor.fornecedor_razao_social),
       fornecedor_cnpj: escapeHtml(dados.fornecedor.fornecedor_cnpj),
       fornecedor_email: escapeHtml(dados.fornecedor.fornecedor_email || ''),

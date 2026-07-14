@@ -34,7 +34,7 @@ export default async function testGerarPdfSolicitacaoOrcamento() {
         assert.match(html, /Fornecedor PDF Orcamento/);
         assert.match(html, new RegExp(solicitacao.usuarioFixture.nome));
         assert.match(html, /Item Solicitacao|Reposicao para cotacao/);
-        assert.match(html, /Empresa Compradora/);
+        assert.match(html, /Sistema de Compras/);
         assert.match(html, new RegExp(`SOL-${solicitacao.id} / COT-${cotacao.id} / R1`));
         assert.match(html, /<td class="item-index text-center">1<\/td>/);
         assert.match(html, /<th class="text-center">Qtd\.<\/th>/);
@@ -55,7 +55,7 @@ export default async function testGerarPdfSolicitacaoOrcamento() {
 
     assert.equal(pdf.filename, `cotacao-${cotacao.id}-fornecedor-${fornecedor.id}-solicitacao-orcamento.pdf`);
     assert.equal(pdf.buffer.toString(), '%PDF-cotacao-orcamento');
-    assert.match(pdf.html, /Solicitacao de cotacao com PDF/);
+    assert.doesNotMatch(pdf.html, /{{[^}]+}}/);
   } finally {
     resetPdfProvider();
     await cleanupCotacaoFixtures({ solicitacao, fornecedores: [fornecedor] });
