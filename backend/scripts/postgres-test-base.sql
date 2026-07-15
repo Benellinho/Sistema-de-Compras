@@ -70,7 +70,7 @@ ON CONFLICT (id) DO UPDATE SET
 
 INSERT INTO grupos_itens (id, nome, codigo, ultimo_sequencial, ativo)
 VALUES
-  (1, 'Manutencao industrial', 'MAN', 2, 1),
+  (1, 'Manutencao industrial', 'MI', 2, 1),
   (2, 'Tecnologia', 'TEC', 1, 1),
   (3, 'Escritorio', 'ESC', 0, 1)
 ON CONFLICT (id) DO UPDATE SET
@@ -92,8 +92,8 @@ INSERT INTO itens_compra (
   ativo
 )
 VALUES
-  (1, 'MAN - 001', 1, 'Rolamento 6203 blindado', 'UN', 'CUSTO', 1, 1, 1),
-  (2, 'MAN - 002', 2, 'Oleo hidraulico ISO VG 68', 'L', 'CUSTO', 1, 1, 1),
+  (1, 'MI - 001', 1, 'Rolamento 6203 blindado', 'UN', 'CUSTO', 1, 1, 1),
+  (2, 'MI - 002', 2, 'Oleo hidraulico ISO VG 68', 'L', 'CUSTO', 1, 1, 1),
   (3, 'TEC - 001', 1, 'Notebook corporativo Intel i5 16GB RAM', 'UN', 'INVESTIMENTO', 2, 0, 1)
 ON CONFLICT (id) DO UPDATE SET
   codigo = EXCLUDED.codigo,

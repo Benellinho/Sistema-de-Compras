@@ -101,16 +101,18 @@ const fornecedores = [
 ];
 
 const grupos = [
-  { nome: 'Manutencao Industrial', codigo: 'MAN', ativo: 1 },
+  { nome: 'Manutencao Industrial', codigo: 'MI', ativo: 1 },
   { nome: 'Materiais Eletricos', codigo: 'ELE', ativo: 1 },
   { nome: 'EPIs', codigo: 'EPI', ativo: 1 },
   { nome: 'Escritorio', codigo: 'ESC', ativo: 1 },
-  { nome: 'Limpeza', codigo: 'LIM', ativo: 1 }
+  { nome: 'Limpeza', codigo: 'LIMP', ativo: 1 },
+  { nome: 'Parafusos', codigo: 'PARA', ativo: 1 },
+  { nome: 'Porcas', codigo: 'PORC', ativo: 1 }
 ];
 
 const itens = [
   {
-    codigo: 'MAN - 001',
+    codigo: 'MI - 001',
     sequencial: 1,
     descricao: 'Parafuso sextavado zincado 1/4',
     unidade: 'UN',
@@ -120,7 +122,7 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'MAN - 002',
+    codigo: 'MI - 002',
     sequencial: 2,
     descricao: 'Rolamento industrial 6203',
     unidade: 'UN',
@@ -190,7 +192,7 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'LIM - 001',
+    codigo: 'LIMP - 001',
     sequencial: 1,
     descricao: 'Detergente neutro 5 litros',
     unidade: 'GL',
@@ -200,7 +202,7 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'LIM - 002',
+    codigo: 'LIMP - 002',
     sequencial: 2,
     descricao: 'Pano multiuso pacote com 50 unidades',
     unidade: 'PCT',

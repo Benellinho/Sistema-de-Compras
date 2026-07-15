@@ -161,10 +161,8 @@ export function ScreenRenderer({ screenId }) {
 
         return classificacaoSearchTerms.every((term) => searchable.includes(term))
       })
-    : []
-  const mostrarResultadosClassificacao = Boolean(
-    classificacaoForm.itemBusca && !classificacaoForm.itemId,
-  )
+    : itensAtivos
+  const mostrarResultadosClassificacao = !classificacaoForm.itemId
 
   return (
     <>
@@ -470,7 +468,7 @@ export function ScreenRenderer({ screenId }) {
                           <span className="item-search-count">
                             {itensClassificacaoFiltrados.length} item(ns) compativel(is)
                           </span>
-                          {itensClassificacaoFiltrados.slice(0, 20).map((item) => (
+                          {itensClassificacaoFiltrados.map((item) => (
                             <button
                               key={item.id}
                               type="button"
@@ -490,9 +488,6 @@ export function ScreenRenderer({ screenId }) {
                               </span>
                             </button>
                           ))}
-                          {itensClassificacaoFiltrados.length > 20 && (
-                            <small>Continue digitando para refinar os resultados.</small>
-                          )}
                         </>
                       ) : (
                         <span className="item-search-empty">Nenhum item compativel encontrado.</span>
