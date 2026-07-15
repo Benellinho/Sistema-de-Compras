@@ -22,6 +22,16 @@ function required(value) {
   return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
+function normalizeCodigo(value) {
+  return String(value).trim().toUpperCase();
+}
+
+function validateCodigo(codigo) {
+  if (!/^[A-Z0-9]+$/.test(codigo)) {
+    throw createValidationError('Codigo do grupo deve conter apenas letras e numeros.');
+  }
+}
+
 function normalizeAtivo(value) {
   if (value === undefined || value === null) {
     return value;
@@ -56,14 +66,28 @@ async function create(data) {
     throw createValidationError('Nome do grupo e obrigatorio.');
   }
 
+
+  if (!required(data?.codigo)) {
+    throw createValidationError('Codigo do grupo e obrigatorio.');
+  }
+
+  const codigo = normalizeCodigo(data.codigo);
+  validateCodigo(codigo);
+
   const grupo = await gruposRepository.findByNome(data.nome);
 
   if (grupo) {
     throw createConflictError('Ja existe um grupo de item com este nome.');
   }
 
+
+  if (await gruposRepository.findByCodigo(codigo)) {
+    throw createConflictError('Ja existe um grupo de item com este codigo.');
+  }
+
   return gruposRepository.create({
     ...data,
+    codigo,
     ativo: normalizeAtivo(data?.ativo)
   });
 }
@@ -75,14 +99,33 @@ async function update(id, data) {
     throw createValidationError('Nome do grupo nao pode ser vazio.');
   }
 
+
+  if (data?.codigo !== undefined && !required(data.codigo)) {
+    throw createValidationError('Codigo do grupo nao pode ser vazio.');
+  }
+
+  const codigo = data?.codigo === undefined ? undefined : normalizeCodigo(data.codigo);
+
+  if (codigo !== undefined) {
+    validateCodigo(codigo);
+  }
+
   const grupoComNome = data?.nome ? await gruposRepository.findByNome(data.nome) : null;
 
   if (grupoComNome && Number(grupoComNome.id) !== Number(id)) {
     throw createConflictError('Ja existe um grupo de item com este nome.');
   }
 
+
+  const grupoComCodigo = codigo ? await gruposRepository.findByCodigo(codigo) : null;
+
+  if (grupoComCodigo && Number(grupoComCodigo.id) !== Number(id)) {
+    throw createConflictError('Ja existe um grupo de item com este codigo.');
+  }
+
   return gruposRepository.update(id, {
     ...data,
+    codigo,
     ativo: normalizeAtivo(data?.ativo)
   });
 }

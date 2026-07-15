@@ -22,6 +22,7 @@ export default async function testCriarItem() {
   assertRequiredFields(item, [
     'id',
     'codigo',
+    'sequencial',
     'descricao',
     'unidade',
     'classificacao',
@@ -30,7 +31,8 @@ export default async function testCriarItem() {
     'controla_estoque',
     'ativo'
   ]);
-  assert.equal(item.codigo, payload.codigo);
+  assert.equal(item.codigo, `${grupo.codigo} - 001`);
+  assert.equal(item.sequencial, 1);
   assert.equal(item.descricao, payload.descricao);
   assert.equal(item.unidade, payload.unidade);
   assert.equal(item.classificacao, payload.classificacao);

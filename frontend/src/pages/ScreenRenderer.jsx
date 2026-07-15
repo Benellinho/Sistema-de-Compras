@@ -39,6 +39,18 @@ import {
   withRetornoStatus,
 } from '../utils/formatters'
 
+function normalizeItemSearch(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function classificacaoItemLabel(item) {
+  return item.codigo ? `${item.codigo} - ${item.descricao}` : item.descricao
+}
+
 export function ScreenRenderer({ screenId }) {
   const activeTab = screenId
   const {
@@ -136,6 +148,23 @@ export function ScreenRenderer({ screenId }) {
     goToEnvioCotacao,
     handleRecusarCotacao,
   } = useSistemaCompras()
+
+  const classificacaoSearchTerms = normalizeItemSearch(classificacaoForm.itemBusca).split(/\s+/).filter(Boolean)
+  const itensClassificacaoFiltrados = classificacaoSearchTerms.length > 0
+    ? itensAtivos.filter((item) => {
+        const searchable = normalizeItemSearch([
+          item.codigo,
+          item.descricao,
+          item.grupo_nome,
+          item.unidade,
+        ].filter(Boolean).join(' '))
+
+        return classificacaoSearchTerms.every((term) => searchable.includes(term))
+      })
+    : []
+  const mostrarResultadosClassificacao = Boolean(
+    classificacaoForm.itemBusca && !classificacaoForm.itemId,
+  )
 
   return (
     <>
@@ -412,23 +441,64 @@ export function ScreenRenderer({ screenId }) {
                   </div>
                   <label>
                     Item correspondente
-                    <select
-                      value={classificacaoForm.itemId}
+                    <input
+                      type="search"
+                      value={classificacaoForm.itemBusca}
+                      placeholder="Digite parte do codigo, descricao ou grupo"
+                      autoComplete="off"
+                      aria-autocomplete="list"
+                      aria-controls="classificacao-item-resultados"
+                      aria-expanded={mostrarResultadosClassificacao}
                       onChange={(event) =>
                         setClassificacaoForm((current) => ({
                           ...current,
-                          itemId: event.target.value,
+                          itemBusca: event.target.value,
+                          itemId: '',
                         }))
                       }
-                    >
-                      <option value="">Selecione um item</option>
-                      {itensAtivos.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.codigo ? `${item.codigo} - ${item.descricao}` : item.descricao}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
+                  {mostrarResultadosClassificacao && (
+                    <div
+                      id="classificacao-item-resultados"
+                      className="item-search-results"
+                      role="listbox"
+                      aria-label="Itens compativeis"
+                    >
+                      {itensClassificacaoFiltrados.length > 0 ? (
+                        <>
+                          <span className="item-search-count">
+                            {itensClassificacaoFiltrados.length} item(ns) compativel(is)
+                          </span>
+                          {itensClassificacaoFiltrados.slice(0, 20).map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              role="option"
+                              aria-selected="false"
+                              onClick={() =>
+                                setClassificacaoForm((current) => ({
+                                  ...current,
+                                  itemId: String(item.id),
+                                  itemBusca: classificacaoItemLabel(item),
+                                }))
+                              }
+                            >
+                              <strong>{classificacaoItemLabel(item)}</strong>
+                              <span>
+                                {[item.grupo_nome, item.unidade].filter(Boolean).join(' | ')}
+                              </span>
+                            </button>
+                          ))}
+                          {itensClassificacaoFiltrados.length > 20 && (
+                            <small>Continue digitando para refinar os resultados.</small>
+                          )}
+                        </>
+                      ) : (
+                        <span className="item-search-empty">Nenhum item compativel encontrado.</span>
+                      )}
+                    </div>
+                  )}
                   <div className="form-grid single-column">
                     <label>
                       Quantidade
@@ -1840,22 +1910,35 @@ export function ScreenRenderer({ screenId }) {
                   <strong>{grupos.length}</strong>
                 </div>
                 <form className="compact-form" onSubmit={handleCreateGrupo}>
-                  <label>
-                    Nome do grupo
-                    <input
-                      value={grupoForm.nome}
-                      onChange={(event) =>
-                        setGrupoForm({
-                          nome: event.target.value,
-                        })
-                      }
-                      placeholder="Manutencao, Almoxarifado, EPIs..."
-                    />
-                  </label>
+                  <div className="form-grid">
+                    <label>
+                      Nome do grupo
+                      <input
+                        value={grupoForm.nome}
+                        onChange={(event) =>
+                          setGrupoForm((current) => ({ ...current, nome: event.target.value }))
+                        }
+                        placeholder="Manutencao, Almoxarifado, EPIs..."
+                      />
+                    </label>
+                    <label>
+                      Codigo (sigla)
+                      <input
+                        value={grupoForm.codigo}
+                        onChange={(event) =>
+                          setGrupoForm((current) => ({
+                            ...current,
+                            codigo: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+                          }))
+                        }
+                        placeholder="MAN"
+                      />
+                    </label>
+                  </div>
                   <button
                     type="submit"
                     className="primary"
-                    disabled={actionLocked || !grupoForm.nome}
+                    disabled={actionLocked || !grupoForm.nome || !grupoForm.codigo}
                   >
                     <ButtonContent active={pendingAction === ACTIONS.cadastrarGrupo}>
                       Cadastrar grupo
@@ -1875,18 +1958,6 @@ export function ScreenRenderer({ screenId }) {
                 </div>
                 <form className="compact-form" onSubmit={handleCreateItem}>
                   <div className="form-grid">
-                    <label>
-                      Codigo
-                      <input
-                        value={itemForm.codigo}
-                        onChange={(event) =>
-                          setItemForm((current) => ({
-                            ...current,
-                            codigo: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
                     <label>
                       Unidade
                       <input
@@ -1926,7 +1997,7 @@ export function ScreenRenderer({ screenId }) {
                       >
                         {gruposAtivos.map((grupo) => (
                           <option key={grupo.id} value={grupo.id}>
-                            {grupo.nome}
+                            {grupo.codigo} - {grupo.nome}
                           </option>
                         ))}
                       </select>
@@ -1970,7 +2041,6 @@ export function ScreenRenderer({ screenId }) {
                     className="primary"
                     disabled={
                       actionLocked ||
-                      !itemForm.codigo ||
                       !itemForm.descricao ||
                       !itemForm.unidade ||
                       !itemForm.grupoId

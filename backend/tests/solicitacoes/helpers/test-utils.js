@@ -40,6 +40,7 @@ export function createGrupoPayload(overrides = {}) {
 
   return {
     nome: `Grupo Solicitacao ${unique}`,
+    codigo: `GS${unique}`,
     ativo: 1,
     ...overrides
   };

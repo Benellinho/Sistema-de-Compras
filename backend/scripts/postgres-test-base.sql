@@ -68,19 +68,22 @@ ON CONFLICT (id) DO UPDATE SET
   telefone = EXCLUDED.telefone,
   email = EXCLUDED.email;
 
-INSERT INTO grupos_itens (id, nome, ativo)
+INSERT INTO grupos_itens (id, nome, codigo, ultimo_sequencial, ativo)
 VALUES
-  (1, 'Manutencao industrial', 1),
-  (2, 'Tecnologia', 1),
-  (3, 'Escritorio', 1)
+  (1, 'Manutencao industrial', 'MAN', 2, 1),
+  (2, 'Tecnologia', 'TEC', 1, 1),
+  (3, 'Escritorio', 'ESC', 0, 1)
 ON CONFLICT (id) DO UPDATE SET
   nome = EXCLUDED.nome,
+  codigo = EXCLUDED.codigo,
+  ultimo_sequencial = EXCLUDED.ultimo_sequencial,
   ativo = EXCLUDED.ativo,
   updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO itens_compra (
   id,
   codigo,
+  sequencial,
   descricao,
   unidade,
   classificacao,
@@ -89,11 +92,12 @@ INSERT INTO itens_compra (
   ativo
 )
 VALUES
-  (1, 'ROL-6203', 'Rolamento 6203 blindado', 'UN', 'CUSTO', 1, 1, 1),
-  (2, 'OLEO-68', 'Oleo hidraulico ISO VG 68', 'L', 'CUSTO', 1, 1, 1),
-  (3, 'NOTE-I5', 'Notebook corporativo Intel i5 16GB RAM', 'UN', 'INVESTIMENTO', 2, 0, 1)
+  (1, 'MAN - 001', 1, 'Rolamento 6203 blindado', 'UN', 'CUSTO', 1, 1, 1),
+  (2, 'MAN - 002', 2, 'Oleo hidraulico ISO VG 68', 'L', 'CUSTO', 1, 1, 1),
+  (3, 'TEC - 001', 1, 'Notebook corporativo Intel i5 16GB RAM', 'UN', 'INVESTIMENTO', 2, 0, 1)
 ON CONFLICT (id) DO UPDATE SET
   codigo = EXCLUDED.codigo,
+  sequencial = EXCLUDED.sequencial,
   descricao = EXCLUDED.descricao,
   unidade = EXCLUDED.unidade,
   classificacao = EXCLUDED.classificacao,

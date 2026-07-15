@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE TABLE IF NOT EXISTS grupos_itens (
   id SERIAL PRIMARY KEY,
   nome TEXT NOT NULL UNIQUE,
+  codigo TEXT NOT NULL UNIQUE,
+  ultimo_sequencial INTEGER NOT NULL DEFAULT 0 CHECK (ultimo_sequencial >= 0),
   ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -39,6 +41,7 @@ CREATE TABLE IF NOT EXISTS grupos_itens (
 CREATE TABLE IF NOT EXISTS itens_compra (
   id SERIAL PRIMARY KEY,
   codigo TEXT NOT NULL UNIQUE,
+  sequencial INTEGER NOT NULL,
   descricao TEXT NOT NULL,
   unidade TEXT NOT NULL,
   classificacao TEXT NOT NULL DEFAULT 'CUSTO' CHECK (classificacao IN ('CUSTO', 'DESPESA', 'INVESTIMENTO', 'PLR')),
@@ -47,8 +50,77 @@ CREATE TABLE IF NOT EXISTS itens_compra (
   ativo INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1)),
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (grupo_id) REFERENCES grupos_itens (id)
+  FOREIGN KEY (grupo_id) REFERENCES grupos_itens (id),
+  UNIQUE (grupo_id, sequencial)
 );
+
+-- Compatibilidade com bancos criados antes dos codigos automaticos por grupo.
+DO $$
+BEGIN
+  ALTER TABLE grupos_itens ADD COLUMN codigo TEXT;
+EXCEPTION
+  WHEN duplicate_column THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE grupos_itens ADD COLUMN ultimo_sequencial INTEGER NOT NULL DEFAULT 0;
+EXCEPTION
+  WHEN duplicate_column THEN NULL;
+END $$;
+
+UPDATE grupos_itens
+SET codigo = 'GRP' || id
+WHERE codigo IS NULL OR BTRIM(codigo) = '';
+
+ALTER TABLE grupos_itens ALTER COLUMN codigo SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_grupos_itens_codigo ON grupos_itens (codigo);
+
+DO $$
+BEGIN
+  ALTER TABLE itens_compra ADD COLUMN sequencial INTEGER;
+EXCEPTION
+  WHEN duplicate_column THEN NULL;
+END $$;
+
+WITH itens_numerados AS (
+  SELECT i.id,
+         g.codigo || ' - ' || LPAD(
+           ROW_NUMBER() OVER (PARTITION BY i.grupo_id ORDER BY i.id)::TEXT,
+           3,
+           '0'
+         ) AS codigo,
+         ROW_NUMBER() OVER (PARTITION BY i.grupo_id ORDER BY i.id) AS numero
+  FROM itens_compra i
+  INNER JOIN grupos_itens g ON g.id = i.grupo_id
+  WHERE sequencial IS NULL
+)
+UPDATE itens_compra i
+SET codigo = itens_numerados.codigo,
+    sequencial = itens_numerados.numero
+FROM itens_numerados
+WHERE i.id = itens_numerados.id;
+
+UPDATE itens_compra i
+SET codigo = g.codigo || ' - ' || LPAD(i.sequencial::TEXT, 3, '0')
+FROM grupos_itens g
+WHERE g.id = i.grupo_id
+  AND i.sequencial IS NOT NULL
+  AND i.codigo <> g.codigo || ' - ' || LPAD(i.sequencial::TEXT, 3, '0');
+
+UPDATE grupos_itens g
+SET ultimo_sequencial = GREATEST(
+  ultimo_sequencial,
+  COALESCE((
+    SELECT MAX(i.sequencial)
+    FROM itens_compra i
+    WHERE i.grupo_id = g.id
+  ), 0)
+);
+
+ALTER TABLE itens_compra ALTER COLUMN sequencial SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_itens_compra_grupo_sequencial
+  ON itens_compra (grupo_id, sequencial);
 
 CREATE TABLE IF NOT EXISTS solicitacoes_compra (
   id SERIAL PRIMARY KEY,

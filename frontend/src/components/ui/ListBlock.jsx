@@ -18,7 +18,7 @@ export function ListBlock({ title, items }) {
             const status = item.status ? ` | ${statusText(item.status)}` : ativoStatus
             const detail = [
               item.fornecedor_nome,
-              item.cnpj || item.codigo || item.email || item.unidade || item.cargo,
+              item.codigo || item.cnpj || item.email || item.unidade || item.cargo,
             ]
               .filter(Boolean)
               .join(' | ')

@@ -3,6 +3,7 @@ import { getDatabase } from '../../../db/connection.js';
 const itemFields = `
   i.id,
   i.codigo,
+  i.sequencial,
   i.descricao,
   i.unidade,
   i.classificacao,
@@ -55,7 +56,6 @@ async function findByCodigo(codigo) {
 }
 
 async function create({
-  codigo,
   descricao,
   unidade,
   classificacao = 'CUSTO',
@@ -65,8 +65,16 @@ async function create({
 }) {
   const database = await getDatabase();
   const result = await database.run(
-    `INSERT INTO ITENS_COMPRA (
+    `WITH proximo_codigo AS (
+       UPDATE GRUPOS_ITENS
+       SET ultimo_sequencial = ultimo_sequencial + 1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?
+       RETURNING id, codigo, ultimo_sequencial
+     )
+     INSERT INTO ITENS_COMPRA (
        codigo,
+       sequencial,
        descricao,
        unidade,
        classificacao,
@@ -76,18 +84,44 @@ async function create({
        created_at,
        updated_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    [codigo, descricao, unidade, classificacao, grupo_id, controla_estoque, ativo]
+     SELECT codigo || ' - ' || LPAD(ultimo_sequencial::TEXT, 3, '0'),
+            ultimo_sequencial,
+            ?, ?, ?, id, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+     FROM proximo_codigo
+     RETURNING id`,
+    [grupo_id, descricao, unidade, classificacao, controla_estoque, ativo]
   );
 
   return findById(result.lastID);
 }
 
-async function update(id, { codigo, descricao, unidade, classificacao, grupo_id, controla_estoque, ativo }) {
+async function update(id, { descricao, unidade, classificacao, grupo_id, controla_estoque, ativo }) {
   const database = await getDatabase();
   await database.run(
-    `UPDATE ITENS_COMPRA
-     SET codigo = COALESCE(?, codigo),
+    `WITH item_atual AS (
+       SELECT grupo_id
+       FROM ITENS_COMPRA
+       WHERE id = ?
+     ),
+     proximo_codigo AS (
+       UPDATE GRUPOS_ITENS g
+       SET ultimo_sequencial = ultimo_sequencial + 1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE g.id = ?
+         AND EXISTS (
+           SELECT 1 FROM item_atual WHERE grupo_id <> ?
+         )
+       RETURNING codigo, ultimo_sequencial
+     )
+     UPDATE ITENS_COMPRA
+     SET codigo = COALESCE(
+           (SELECT codigo || ' - ' || LPAD(ultimo_sequencial::TEXT, 3, '0') FROM proximo_codigo),
+           codigo
+         ),
+         sequencial = COALESCE(
+           (SELECT ultimo_sequencial FROM proximo_codigo),
+           sequencial
+         ),
          descricao = COALESCE(?, descricao),
          unidade = COALESCE(?, unidade),
          classificacao = COALESCE(?, classificacao),
@@ -96,7 +130,7 @@ async function update(id, { codigo, descricao, unidade, classificacao, grupo_id,
          ativo = COALESCE(?, ativo),
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [codigo, descricao, unidade, classificacao, grupo_id, controla_estoque, ativo, id]
+    [id, grupo_id, grupo_id, descricao, unidade, classificacao, grupo_id, controla_estoque, ativo, id]
   );
 
   return findById(id);

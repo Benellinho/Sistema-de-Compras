@@ -23,6 +23,8 @@ export default async function testAtualizarItem() {
   });
 
   assert.equal(atualizado.id, item.id);
+  assert.equal(atualizado.codigo, `${grupo.codigo} - 001`);
+  assert.equal(atualizado.sequencial, 1);
   assert.equal(atualizado.descricao, 'Item Teste Atualizado');
   assert.equal(atualizado.classificacao, 'DESPESA');
   assert.equal(atualizado.grupo_id, grupo.id);

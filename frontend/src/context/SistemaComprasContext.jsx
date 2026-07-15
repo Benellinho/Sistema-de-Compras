@@ -105,6 +105,7 @@ export function SistemaComprasProvider({ children }) {
     solicitacaoId: '',
     itemSolicitacaoId: '',
     itemId: '',
+    itemBusca: '',
     quantidade: '',
     observacoes: '',
   })
@@ -153,9 +154,9 @@ export function SistemaComprasProvider({ children }) {
   })
   const [grupoForm, setGrupoForm] = useState({
     nome: '',
+    codigo: '',
   })
   const [itemForm, setItemForm] = useState({
-    codigo: '',
     descricao: '',
     unidade: 'UN',
     classificacao: 'CUSTO',
@@ -562,6 +563,7 @@ export function SistemaComprasProvider({ children }) {
         : '',
       itemSolicitacaoId: '',
       itemId: '',
+      itemBusca: '',
       quantidade: '',
       observacoes: '',
     })
@@ -646,9 +648,8 @@ export function SistemaComprasProvider({ children }) {
       telefone: '',
       email: '',
     })
-    setGrupoForm({ nome: '' })
+    setGrupoForm({ nome: '', codigo: '' })
     setItemForm({
-      codigo: '',
       descricao: '',
       unidade: 'UN',
       classificacao: 'CUSTO',
@@ -801,6 +802,7 @@ export function SistemaComprasProvider({ children }) {
             : '',
         itemSolicitacaoId: itemSolicitacaoIsValid ? current.itemSolicitacaoId : '',
         itemId: shouldClearInvalidEditing ? '' : itemIsValid ? current.itemId : '',
+        itemBusca: shouldClearInvalidEditing || !itemIsValid ? '' : current.itemBusca,
         quantidade: shouldClearInvalidEditing ? '' : current.quantidade ?? '',
         observacoes: shouldClearInvalidEditing ? '' : current.observacoes,
       }
@@ -1103,6 +1105,7 @@ export function SistemaComprasProvider({ children }) {
           solicitacaoId: String(solicitacao.id),
           itemSolicitacaoId: '',
           itemId: '',
+          itemBusca: '',
           quantidade: '',
           observacoes: '',
         }))
@@ -1120,6 +1123,7 @@ export function SistemaComprasProvider({ children }) {
       solicitacaoId,
       itemSolicitacaoId: '',
       itemId: '',
+      itemBusca: '',
       quantidade: '',
       observacoes: '',
     }))
@@ -1194,6 +1198,7 @@ export function SistemaComprasProvider({ children }) {
           solicitacaoId: shouldCreateSolicitacao ? String(feedbackSolicitacao.id) : current.solicitacaoId,
           itemSolicitacaoId: '',
           itemId: '',
+          itemBusca: '',
           quantidade: '',
           observacoes: '',
         }))
@@ -1205,6 +1210,10 @@ export function SistemaComprasProvider({ children }) {
   }
 
   function handleEditClassificacaoItem(item) {
+    const itemCatalogo = itensAtivos.find(
+      (itemAtivo) => Number(itemAtivo.id) === Number(item.item_id),
+    )
+
     setFeedbackAction(ACTIONS.carregarEdicaoItem)
     setActionFeedback('Item carregado para edicao.')
     setClassificacaoForm((current) => ({
@@ -1212,6 +1221,9 @@ export function SistemaComprasProvider({ children }) {
       solicitacaoId: item.solicitacao_id ? String(item.solicitacao_id) : current.solicitacaoId,
       itemSolicitacaoId: String(item.id),
       itemId: item.item_id ? String(item.item_id) : '',
+      itemBusca: itemCatalogo
+        ? `${itemCatalogo.codigo ? `${itemCatalogo.codigo} - ` : ''}${itemCatalogo.descricao}`
+        : '',
       quantidade: item.quantidade ? String(item.quantidade) : '',
       observacoes: item.observacoes || '',
     }))
@@ -1223,6 +1235,7 @@ export function SistemaComprasProvider({ children }) {
       ...current,
       itemSolicitacaoId: '',
       itemId: '',
+      itemBusca: '',
       quantidade: '',
       observacoes: '',
     }))
@@ -1582,10 +1595,11 @@ export function SistemaComprasProvider({ children }) {
       try {
         const grupo = await comprasApi.criarGrupo({
           nome: grupoForm.nome,
+          codigo: grupoForm.codigo,
           ativo: true,
         })
 
-        setGrupoForm({ nome: '' })
+        setGrupoForm({ nome: '', codigo: '' })
         setItemForm((current) => ({
           ...current,
           grupoId: String(grupo.id),
@@ -1612,7 +1626,6 @@ export function SistemaComprasProvider({ children }) {
         }
 
         const item = await comprasApi.criarItem({
-          codigo: itemForm.codigo,
           descricao: itemForm.descricao,
           unidade: itemForm.unidade,
           classificacao: itemForm.classificacao,
@@ -1623,7 +1636,6 @@ export function SistemaComprasProvider({ children }) {
 
         setItemForm((current) => ({
           ...current,
-          codigo: '',
           descricao: '',
           unidade: 'UN',
           classificacao: 'CUSTO',

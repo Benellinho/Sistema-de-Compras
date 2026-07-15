@@ -15,5 +15,13 @@ export default async function testValidarGrupoDuplicado() {
     (error) => error.statusCode === 409 && error.message.includes('grupo')
   );
 
+  await assert.rejects(
+    () => gruposService.create({
+      ...payload,
+      nome: `${payload.nome} Outro`
+    }),
+    (error) => error.statusCode === 409 && error.message.includes('codigo')
+  );
+
   await cleanupGrupoByNome(payload.nome);
 }

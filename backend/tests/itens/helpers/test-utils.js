@@ -37,6 +37,7 @@ export function createGrupoPayload(overrides = {}) {
 
   return {
     nome: `Grupo Teste ${unique}`,
+    codigo: `GT${unique}`,
     ativo: 1,
     ...overrides
   };
@@ -85,8 +86,7 @@ export async function cleanupGrupoByNome(nome) {
   const database = await setupDatabase();
 
   await database.run(
-    `UPDATE ITENS_COMPRA
-     SET grupo_id = NULL
+    `DELETE FROM ITENS_COMPRA
      WHERE grupo_id IN (
        SELECT id FROM GRUPOS_ITENS WHERE nome = ?
      )`,

@@ -101,16 +101,17 @@ const fornecedores = [
 ];
 
 const grupos = [
-  { nome: 'Manutencao Industrial', ativo: 1 },
-  { nome: 'Materiais Eletricos', ativo: 1 },
-  { nome: 'EPIs', ativo: 1 },
-  { nome: 'Escritorio', ativo: 1 },
-  { nome: 'Limpeza', ativo: 1 }
+  { nome: 'Manutencao Industrial', codigo: 'MAN', ativo: 1 },
+  { nome: 'Materiais Eletricos', codigo: 'ELE', ativo: 1 },
+  { nome: 'EPIs', codigo: 'EPI', ativo: 1 },
+  { nome: 'Escritorio', codigo: 'ESC', ativo: 1 },
+  { nome: 'Limpeza', codigo: 'LIM', ativo: 1 }
 ];
 
 const itens = [
   {
-    codigo: 'MAT-001',
+    codigo: 'MAN - 001',
+    sequencial: 1,
     descricao: 'Parafuso sextavado zincado 1/4',
     unidade: 'UN',
     classificacao: 'CUSTO',
@@ -119,7 +120,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'MAT-002',
+    codigo: 'MAN - 002',
+    sequencial: 2,
     descricao: 'Rolamento industrial 6203',
     unidade: 'UN',
     classificacao: 'CUSTO',
@@ -128,7 +130,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'ELE-001',
+    codigo: 'ELE - 001',
+    sequencial: 1,
     descricao: 'Cabo flexivel 2,5 mm',
     unidade: 'M',
     classificacao: 'CUSTO',
@@ -137,7 +140,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'ELE-002',
+    codigo: 'ELE - 002',
+    sequencial: 2,
     descricao: 'Disjuntor monopolar 20A',
     unidade: 'UN',
     classificacao: 'CUSTO',
@@ -146,7 +150,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'EPI-001',
+    codigo: 'EPI - 001',
+    sequencial: 1,
     descricao: 'Luva de seguranca nitrilica',
     unidade: 'PAR',
     classificacao: 'CUSTO',
@@ -155,7 +160,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'EPI-002',
+    codigo: 'EPI - 002',
+    sequencial: 2,
     descricao: 'Oculos de protecao transparente',
     unidade: 'UN',
     classificacao: 'CUSTO',
@@ -164,7 +170,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'ESC-001',
+    codigo: 'ESC - 001',
+    sequencial: 1,
     descricao: 'Papel sulfite A4 caixa com 10 resmas',
     unidade: 'CX',
     classificacao: 'DESPESA',
@@ -173,7 +180,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'ESC-002',
+    codigo: 'ESC - 002',
+    sequencial: 2,
     descricao: 'Caneta esferografica azul caixa com 50 unidades',
     unidade: 'CX',
     classificacao: 'DESPESA',
@@ -182,7 +190,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'LIM-001',
+    codigo: 'LIM - 001',
+    sequencial: 1,
     descricao: 'Detergente neutro 5 litros',
     unidade: 'GL',
     classificacao: 'DESPESA',
@@ -191,7 +200,8 @@ const itens = [
     ativo: 1
   },
   {
-    codigo: 'LIM-002',
+    codigo: 'LIM - 002',
+    sequencial: 2,
     descricao: 'Pano multiuso pacote com 50 unidades',
     unidade: 'PCT',
     classificacao: 'DESPESA',
@@ -276,13 +286,22 @@ async function upsertContato(database, fornecedorId, contato) {
 
 async function upsertGrupo(database, grupo) {
   const result = await database.get(
-    `INSERT INTO grupos_itens (nome, ativo, created_at, updated_at)
-     VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `INSERT INTO grupos_itens (nome, codigo, ativo, created_at, updated_at)
+     VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
      ON CONFLICT (nome) DO UPDATE
-       SET ativo = EXCLUDED.ativo,
+       SET codigo = EXCLUDED.codigo,
+           ativo = EXCLUDED.ativo,
            updated_at = CURRENT_TIMESTAMP
      RETURNING id`,
-    [grupo.nome, grupo.ativo]
+    [grupo.nome, grupo.codigo, grupo.ativo]
+  );
+
+  await database.run(
+    `UPDATE itens_compra
+     SET codigo = ? || ' - ' || LPAD(sequencial::TEXT, 3, '0'),
+         updated_at = CURRENT_TIMESTAMP
+     WHERE grupo_id = ?`,
+    [grupo.codigo, result.id]
   );
 
   return result.id;
@@ -292,6 +311,7 @@ async function upsertItem(database, item, grupoId) {
   const result = await database.get(
     `INSERT INTO itens_compra (
        codigo,
+       sequencial,
        descricao,
        unidade,
        classificacao,
@@ -301,9 +321,10 @@ async function upsertItem(database, item, grupoId) {
        created_at,
        updated_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
      ON CONFLICT (codigo) DO UPDATE
        SET descricao = EXCLUDED.descricao,
+           sequencial = EXCLUDED.sequencial,
            unidade = EXCLUDED.unidade,
            classificacao = EXCLUDED.classificacao,
            grupo_id = EXCLUDED.grupo_id,
@@ -313,6 +334,7 @@ async function upsertItem(database, item, grupoId) {
      RETURNING id`,
     [
       item.codigo,
+      item.sequencial,
       item.descricao,
       item.unidade,
       item.classificacao,
@@ -320,6 +342,14 @@ async function upsertItem(database, item, grupoId) {
       item.controla_estoque,
       item.ativo
     ]
+  );
+
+  await database.run(
+    `UPDATE grupos_itens
+     SET ultimo_sequencial = GREATEST(ultimo_sequencial, ?),
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [item.sequencial, grupoId]
   );
 
   return result.id;

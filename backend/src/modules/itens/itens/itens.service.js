@@ -15,12 +15,6 @@ function createNotFoundError(message) {
   return error;
 }
 
-function createConflictError(message) {
-  const error = new Error(message);
-  error.statusCode = 409;
-  return error;
-}
-
 function required(value) {
   return value !== undefined && value !== null && String(value).trim() !== '';
 }
@@ -77,10 +71,6 @@ async function findOne(id) {
 }
 
 async function create(data) {
-  if (!required(data?.codigo)) {
-    throw createValidationError('Codigo do item e obrigatorio.');
-  }
-
   if (!required(data?.descricao)) {
     throw createValidationError('Descricao do item e obrigatoria.');
   }
@@ -92,12 +82,6 @@ async function create(data) {
   validateClassificacao(data.classificacao);
   await validateGrupoAtivo(data.grupo_id);
 
-  const item = await itensRepository.findByCodigo(data.codigo);
-
-  if (item) {
-    throw createConflictError('Ja existe um item cadastrado com este codigo.');
-  }
-
   return itensRepository.create({
     ...data,
     controla_estoque: normalizeAtivo(data?.controla_estoque),
@@ -107,10 +91,6 @@ async function create(data) {
 
 async function update(id, data) {
   await findOne(id);
-
-  if (data?.codigo !== undefined && !required(data.codigo)) {
-    throw createValidationError('Codigo do item nao pode ser vazio.');
-  }
 
   if (data?.descricao !== undefined && !required(data.descricao)) {
     throw createValidationError('Descricao do item nao pode ser vazia.');
@@ -123,12 +103,6 @@ async function update(id, data) {
   validateClassificacao(data.classificacao);
   if (data?.grupo_id !== undefined) {
     await validateGrupoAtivo(data.grupo_id);
-  }
-
-  const itemComCodigo = data?.codigo ? await itensRepository.findByCodigo(data.codigo) : null;
-
-  if (itemComCodigo && Number(itemComCodigo.id) !== Number(id)) {
-    throw createConflictError('Ja existe um item cadastrado com este codigo.');
   }
 
   return itensRepository.update(id, {

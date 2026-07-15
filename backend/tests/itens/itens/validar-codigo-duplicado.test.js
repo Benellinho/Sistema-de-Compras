@@ -1,28 +1,19 @@
 import assert from 'node:assert/strict';
 import itensService from '../../../src/modules/itens/itens/itens.service.js';
-import {
-  cleanupGrupoByNome,
-  cleanupItemByCodigo,
-  createGrupoFixture,
-  createItemPayload,
-  setupDatabase
-} from '../helpers/test-utils.js';
+import { cleanupGrupoByNome, cleanupItemByCodigo, createGrupoFixture, createItemPayload, setupDatabase } from '../helpers/test-utils.js';
 
 export default async function testValidarCodigoDuplicado() {
   await setupDatabase();
 
   const grupo = await createGrupoFixture();
-  const payload = createItemPayload();
-  payload.grupo_id = grupo.id;
-  await cleanupItemByCodigo(payload.codigo);
+  const primeiro = await itensService.create(createItemPayload({ grupo_id: grupo.id }));
+  const segundo = await itensService.create(createItemPayload({ grupo_id: grupo.id }));
 
-  await itensService.create(payload);
+  assert.equal(primeiro.codigo, `${grupo.codigo} - 001`);
+  assert.equal(segundo.codigo, `${grupo.codigo} - 002`);
+  assert.notEqual(primeiro.codigo, segundo.codigo);
 
-  await assert.rejects(
-    () => itensService.create(payload),
-    (error) => error.statusCode === 409 && error.message.includes('codigo')
-  );
-
-  await cleanupItemByCodigo(payload.codigo);
+  await cleanupItemByCodigo(primeiro.codigo);
+  await cleanupItemByCodigo(segundo.codigo);
   await cleanupGrupoByNome(grupo.nome);
 }

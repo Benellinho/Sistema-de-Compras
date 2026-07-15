@@ -15,9 +15,15 @@ export default async function testCriarGrupo() {
 
   const grupo = await gruposService.create(payload);
 
-  assertRequiredFields(grupo, ['id', 'nome', 'ativo', 'created_at', 'updated_at']);
+  assertRequiredFields(grupo, ['id', 'nome', 'codigo', 'ativo', 'created_at', 'updated_at']);
   assert.equal(grupo.nome, payload.nome);
+  assert.equal(grupo.codigo, payload.codigo);
   assert.equal(grupo.ativo, payload.ativo);
+
+  await assert.rejects(
+    () => gruposService.create({ ...payload, nome: `${payload.nome} Invalido`, codigo: 'GRUPO TESTE' }),
+    (error) => error.statusCode === 400 && error.message.includes('letras e numeros')
+  );
 
   await cleanupGrupoByNome(payload.nome);
 }

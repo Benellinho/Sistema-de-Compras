@@ -779,6 +779,52 @@ button:disabled {
   gap: 10px;
 }
 
+.item-search-results {
+  display: grid;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: -6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.item-search-results button {
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  background: var(--bg);
+}
+
+.item-search-results button:hover,
+.item-search-results button:focus-visible {
+  border-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.item-search-results button strong {
+  color: var(--text-strong);
+}
+
+.item-search-results button span,
+.item-search-results small,
+.item-search-count,
+.item-search-empty {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.item-search-count,
+.item-search-empty,
+.item-search-results small {
+  padding: 4px 6px;
+}
+
 .classification-item-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

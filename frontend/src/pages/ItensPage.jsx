@@ -31,19 +31,36 @@ export default function ItensPage() {
             <strong>{grupos.length}</strong>
           </div>
           <form className="compact-form" onSubmit={handleCreateGrupo}>
-            <label>
-              Nome do grupo
-              <input
-                value={grupoForm.nome}
-                onChange={(event) =>
-                  setGrupoForm({
-                    nome: event.target.value,
-                  })
-                }
-                placeholder="Manutencao, Almoxarifado, EPIs..."
-              />
-            </label>
-            <button type="submit" className="primary" disabled={actionLocked || !grupoForm.nome}>
+            <div className="form-grid">
+              <label>
+                Nome do grupo
+                <input
+                  value={grupoForm.nome}
+                  onChange={(event) =>
+                    setGrupoForm((current) => ({ ...current, nome: event.target.value }))
+                  }
+                  placeholder="Manutencao, Almoxarifado, EPIs..."
+                />
+              </label>
+              <label>
+                Codigo (sigla)
+                <input
+                  value={grupoForm.codigo}
+                  onChange={(event) =>
+                    setGrupoForm((current) => ({
+                      ...current,
+                      codigo: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+                    }))
+                  }
+                  placeholder="MAN"
+                />
+              </label>
+            </div>
+            <button
+              type="submit"
+              className="primary"
+              disabled={actionLocked || !grupoForm.nome || !grupoForm.codigo}
+            >
               <ButtonContent active={pendingAction === ACTIONS.cadastrarGrupo}>
                 Cadastrar grupo
               </ButtonContent>
@@ -62,18 +79,6 @@ export default function ItensPage() {
           </div>
           <form className="compact-form" onSubmit={handleCreateItem}>
             <div className="form-grid">
-              <label>
-                Codigo
-                <input
-                  value={itemForm.codigo}
-                  onChange={(event) =>
-                    setItemForm((current) => ({
-                      ...current,
-                      codigo: event.target.value,
-                    }))
-                  }
-                />
-              </label>
               <label>
                 Unidade
                 <input
@@ -113,7 +118,7 @@ export default function ItensPage() {
                 >
                   {gruposAtivos.map((grupo) => (
                     <option key={grupo.id} value={grupo.id}>
-                      {grupo.nome}
+                      {grupo.codigo} - {grupo.nome}
                     </option>
                   ))}
                 </select>
@@ -157,7 +162,6 @@ export default function ItensPage() {
               className="primary"
               disabled={
                 actionLocked ||
-                !itemForm.codigo ||
                 !itemForm.descricao ||
                 !itemForm.unidade ||
                 !itemForm.grupoId
